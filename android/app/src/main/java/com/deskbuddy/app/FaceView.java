@@ -251,7 +251,7 @@ public class FaceView extends View {
         stroke.setStrokeWidth(Math.max(2.4f * density, rx * .022f));
         path.reset();
         path.moveTo(0, -ry * .94f);
-        path.quadraticTo(rx * .02f, -ry * 1.16f, rx * .09f, -ry * 1.26f);
+        path.quadTo(rx * .02f, -ry * 1.16f, rx * .09f, -ry * 1.26f);
         c.drawPath(path, stroke);
         float tipX = rx * .09f, tipY = -ry * 1.29f;
         paint.setShader(new RadialGradient(tipX, tipY, rx * .16f,
@@ -320,7 +320,7 @@ public class FaceView extends View {
                 stroke.setStrokeWidth(Math.max(2.5f * density, rx * .028f));
                 path.reset();
                 path.moveTo(-er * .82f, 0);
-                path.quadraticTo(0, er * .34f, er * .82f, 0);
+                path.quadTo(0, er * .34f, er * .82f, 0);
                 c.drawPath(path, stroke);
             } else if (styleId == M_DIZZY) {
                 stroke.setColor(0xFF2C2537);
@@ -362,7 +362,7 @@ public class FaceView extends View {
                 stroke.setStrokeWidth(2f * density);
                 path.reset();
                 path.moveTo(ex - er * .9f, eyeY - er * .62f);
-                path.quadraticTo(ex, eyeY - er * .92f, ex + er * .9f, eyeY - er * .62f);
+                path.quadTo(ex, eyeY - er * .92f, ex + er * .9f, eyeY - er * .62f);
                 c.drawPath(path, stroke);
             }
         }
@@ -409,7 +409,7 @@ public class FaceView extends View {
             float y = eyeY - er * lift;
             path.reset();
             path.moveTo(bx + side * er * .8f, y - er * slant * .5f);
-            path.quadraticTo(bx, y - er * .1f, bx - side * er * .78f, y + er * slant * .7f);
+            path.quadTo(bx, y - er * .1f, bx - side * er * .78f, y + er * slant * .7f);
             c.drawPath(path, p);
         }
         p.setAlpha(255);
@@ -431,12 +431,12 @@ public class FaceView extends View {
         } else if (style == 0) {        // smile
             path.reset();
             path.moveTo(-w * .195f, -h * .025f);
-            path.quadraticTo(0, h * .155f, w * .195f, -h * .025f);
+            path.quadTo(0, h * .155f, w * .195f, -h * .025f);
             c.drawPath(path, stroke);
         } else if (style == 3) {        // frown
             path.reset();
             path.moveTo(-w * .15f, h * .06f);
-            path.quadraticTo(0, -h * .065f, w * .15f, h * .06f);
+            path.quadTo(0, -h * .065f, w * .15f, h * .06f);
             c.drawPath(path, stroke);
         } else if (style == 4) {        // small o
             paint.setColor(0xFF3A2A38);
