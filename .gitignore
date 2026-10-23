@@ -1,0 +1,21 @@
+# build output
+build/
+firmware/DeskBuddy/build/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.bin
+*.elf
+*.map
+
+# python
+__pycache__/
+*.pyc
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.iml

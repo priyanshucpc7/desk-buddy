@@ -1,0 +1,129 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  firmware:
+    name: ESP32-S3 firmware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Arduino core
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/Arduino/libraries
+          key: arduino-${{ runner.os }}-esp32-3.3.12-v1
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config add board_manager.additional_urls \
+            https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32@3.3.12
+
+      - name: Embed web UI
+        run: python3 tools/embed_web.py
+
+      - name: Compile
+        run: |
+          arduino-cli compile \
+            --fqbn "esp32:esp32:esp32s3:FlashSize=16M,PSRAM=disabled,PartitionScheme=app3M_fat9M_16MB" \
+            --output-dir build/firmware \
+            --warnings all \
+            firmware/DeskBuddy
+
+      - name: Merge into a single flashable image
+        run: |
+          set -e
+          ESPTOOL=$(find ~/.arduino15/packages/esp32/tools/esptool_py -type f -name esptool | head -1)
+          BOOTAPP=$(find ~/.arduino15/packages/esp32/hardware/esp32 -name boot_app0.bin | head -1)
+          echo "esptool: $ESPTOOL"
+          echo "boot_app0: $BOOTAPP"
+          # "keep" preserves the flash mode/freq/size burned into the built
+          # bootloader header. Forcing qio here bricks boards wired for DIO.
+          "$ESPTOOL" --chip esp32s3 merge_bin \
+            --flash_mode keep --flash_freq keep --flash_size keep \
+            -o build/deskbuddy-esp32s3-16mb.bin \
+            0x0    build/firmware/DeskBuddy.ino.bootloader.bin \
+            0x8000 build/firmware/DeskBuddy.ino.partitions.bin \
+            0xe000 "$BOOTAPP" \
+            0x10000 build/firmware/DeskBuddy.ino.bin
+          ls -lh build/*.bin build/firmware/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            build/deskbuddy-esp32s3-16mb.bin
+            build/firmware/DeskBuddy.ino.bin
+
+  android:
+    name: Android app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build debug APK
+        run: gradle -p android :app:assembleDebug --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  release:
+    name: Publish downloads
+    needs: [firmware, android]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Show files
+        run: find dist -type f -exec ls -lh {} \;
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'ci-latest' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && format('DeskBuddy {0}', github.ref_name) || 'DeskBuddy latest build' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          make_latest: false
+          body: |
+            Automatic build from `${{ github.sha }}`.
+
+            **ESP32-S3 firmware** — flash `deskbuddy-esp32s3-16mb.bin` at address `0x0`:
+            ```
+            esptool --chip esp32s3 -p COM5 -b 921600 write_flash 0x0 deskbuddy-esp32s3-16mb.bin
+            ```
+            **Android phone app** — install `app-debug.apk` (Android 5.0+).
+          files: |
+            dist/firmware/deskbuddy-esp32s3-16mb.bin
+            dist/apk/app-debug.apk

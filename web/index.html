@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080A12">
+<title>DeskBuddy</title>
+<style>
+  :root{
+    --bg:#080A12;
+    --panel:linear-gradient(180deg,rgba(255,255,255,.062),rgba(255,255,255,.028));
+    --panel-solid:#121624;
+    --line:rgba(255,255,255,.085);
+    --line-strong:rgba(255,255,255,.14);
+    --text:#F4EEE7;
+    --dim:#8892A6;
+    --dim2:#5C6579;
+    --accent:#FFB47A;
+    --mint:#8FE3C0;
+    --danger:#FF9C86;
+    --ring:0 0 0 1px rgba(255,255,255,.06), 0 24px 60px -28px rgba(0,0,0,.9);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    color:var(--text);
+    font:15px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+    background:
+      radial-gradient(90% 65% at 50% -10%, #202a44 0%, rgba(16,20,34,0) 60%),
+      radial-gradient(70% 55% at 82% 108%, #2a1f2e 0%, rgba(11,14,22,0) 62%),
+      radial-gradient(55% 45% at 8% 95%, #14263a 0%, rgba(11,14,22,0) 60%),
+      var(--bg);
+    overflow:hidden; overscroll-behavior:none;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* film grain + vignette */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:2; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%);
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.20;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='.35'/></svg>");
+    mix-blend-mode:soft-light;
+  }
+  canvas#stage{position:fixed; inset:0; width:100%; height:100%; display:block; z-index:1; touch-action:none; cursor:grab}
+  canvas#stage:active{cursor:grabbing}
+
+  /* ---------------- header ---------------- */
+  header{
+    position:fixed; z-index:8; top:0; left:0; right:0; display:flex; align-items:center;
+    justify-content:space-between; gap:14px;
+    padding:calc(16px + env(safe-area-inset-top)) 20px 12px;
+  }
+  .brand{display:flex; align-items:center; gap:12px; min-width:0}
+  .mark{
+    width:34px; height:34px; border-radius:11px; flex:0 0 auto;
+    background:linear-gradient(160deg,#FFD9A8,#FF9E7A 62%,#E8795C);
+    box-shadow:0 8px 22px -10px rgba(255,143,107,.8), inset 0 1px 0 rgba(255,255,255,.55);
+    position:relative; overflow:hidden;
+  }
+  .mark::before,.mark::after{
+    content:""; position:absolute; width:4px; height:6px; border-radius:3px; background:#2A2033;
+    top:13px;
+  }
+  .mark::before{left:10px} .mark::after{right:10px}
+  .title-wrap{min-width:0}
+  .kicker{font-size:9.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim2); font-weight:650; line-height:1}
+  .name-row{display:flex; align-items:center; gap:8px; margin-top:4px; min-width:0}
+  .name{font-size:19px; font-weight:640; letter-spacing:-.028em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .lvl{
+    display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700;
+    letter-spacing:.06em; color:#F2C97F; padding:2px 7px 2px 5px; border-radius:999px;
+    background:rgba(255,212,121,.10); border:1px solid rgba(255,212,121,.22); line-height:1.5;
+  }
+  .lvl i{width:5px; height:5px; border-radius:50%; background:#FFD479; box-shadow:0 0 8px #FFD479}
+
+  .right{display:flex; align-items:center; gap:8px; flex:0 0 auto}
+  .pill{
+    display:flex; align-items:center; gap:8px; height:36px; padding:0 12px;
+    border-radius:11px; font-size:12px; font-weight:550; color:var(--dim);
+    background:var(--panel); border:1px solid var(--line); box-shadow:var(--ring);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  }
+  .pill b{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums}
+  .dot{width:7px; height:7px; border-radius:50%; background:#4C5568; transition:background .3s}
+  .dot.on{background:var(--mint); box-shadow:0 0 0 3px rgba(143,227,192,.12), 0 0 12px rgba(143,227,192,.6)}
+  .dot.off{background:var(--danger); box-shadow:0 0 0 3px rgba(255,156,134,.10)}
+  .icon-btn{
+    width:36px; height:36px; border-radius:11px; display:grid; place-items:center; flex:0 0 auto;
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    cursor:pointer; box-shadow:var(--ring); backdrop-filter:blur(10px);
+    transition:transform .16s ease, border-color .16s ease, background .16s ease;
+  }
+  .icon-btn:hover{transform:translateY(-1px); border-color:var(--line-strong); background:rgba(255,255,255,.08)}
+  .icon-btn:active{transform:scale(.96)}
+  .icon-btn svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+
+  /* ---------------- mood / ticker ---------------- */
+  .statusline{
+    position:fixed; z-index:7; left:0; right:0; top:calc(70px + env(safe-area-inset-top));
+    display:flex; justify-content:center; pointer-events:none;
+  }
+  .mood-pill{
+    display:flex; align-items:center; gap:7px; font-size:10.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--dim); font-weight:650;
+    padding:5px 11px; border-radius:999px; background:rgba(10,13,22,.45);
+    border:1px solid rgba(255,255,255,.06); backdrop-filter:blur(8px);
+  }
+  .mood-pill span.face{width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent)}
+  #ticker{
+    margin-left:8px; font-size:11px; letter-spacing:.02em; text-transform:none; color:var(--dim2);
+    opacity:0; transition:opacity .25s; font-weight:500;
+  }
+  #ticker.show{opacity:1}
+
+  /* ---------------- speech ---------------- */
+  #speech{
+    position:fixed; z-index:9; left:50%; top:200px; max-width:min(76vw,430px);
+    padding:12px 17px; border-radius:15px; background:rgba(247,241,234,.97);
+    color:#171A24; font-size:14.5px; font-weight:520; text-align:center; line-height:1.38;
+    box-shadow:0 22px 50px -18px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.6) inset;
+    transform:translate(-50%,10px) scale(.98); opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .24s cubic-bezier(.2,.9,.2,1);
+  }
+  #speech.show{opacity:1; transform:translate(-50%,0) scale(1)}
+  #speech::after{
+    content:""; position:absolute; left:50%; bottom:-5px; width:10px; height:10px;
+    background:inherit; transform:translateX(-50%) rotate(45deg); border-radius:2px;
+  }
+
+  /* ---------------- bottom dock ---------------- */
+  .dock{
+    position:fixed; z-index:8; left:0; right:0; bottom:0;
+    padding:12px 20px calc(18px + env(safe-area-inset-bottom));
+    display:flex; align-items:flex-end; justify-content:space-between; gap:14px;
+    pointer-events:none;
+  }
+  .dock > *{pointer-events:auto}
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    box-shadow:var(--ring); backdrop-filter:blur(16px) saturate(1.15);
+    -webkit-backdrop-filter:blur(16px) saturate(1.15);
+  }
+
+  .vitals{padding:13px 15px 11px; width:300px; flex:0 0 auto}
+  .vitals-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+  .vitals-head .lab{font-size:9.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--dim2); font-weight:650}
+  .vitals-head .age{font-size:10.5px; color:var(--dim2); font-variant-numeric:tabular-nums}
+  .vrow{display:grid; grid-template-columns:56px 1fr 30px; align-items:center; gap:10px; margin:7px 0}
+  .vrow label{font-size:11px; color:var(--dim); letter-spacing:.02em}
+  .vrow .val{font-size:11.5px; font-weight:600; text-align:right; font-variant-numeric:tabular-nums; color:#DDE3EE}
+  .track{height:3px; border-radius:99px; background:rgba(255,255,255,.075); overflow:hidden}
+  .track i{display:block; height:100%; width:0; border-radius:99px; transition:width .7s cubic-bezier(.2,.9,.2,1)}
+  .fill-mood{background:linear-gradient(90deg,#FFC58F,#FF8F6B)}
+  .fill-energy{background:linear-gradient(90deg,#A9ECFF,#6FB8FF)}
+  .fill-food{background:linear-gradient(90deg,#D4F7A8,#8FE3C0)}
+  .fill-bond{background:linear-gradient(90deg,#D8C8FF,#A992FF)}
+  .bondline{display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:9px; border-top:1px solid rgba(255,255,255,.06)}
+  .bondline span{font-size:10.5px; color:var(--dim2); letter-spacing:.04em}
+  .bondline b{font-size:11px; color:#CFC2FF; font-weight:600}
+
+  .sensor-row{
+    display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; padding-top:9px;
+    border-top:1px solid rgba(255,255,255,.06);
+  }
+  .sitem{
+    display:flex; align-items:center; gap:5px; font-size:10px; color:var(--dim2);
+    background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.055);
+    border-radius:7px; padding:3px 6px; font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .sitem svg{width:10px; height:10px; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; opacity:.75}
+  .sitem b{color:#C9D1DF; font-weight:600}
+  .sitem.hide{display:none}
+  .sitem.off{opacity:.62}
+  .micbar{width:26px; height:3px; border-radius:9px; background:rgba(255,255,255,.12); overflow:hidden}
+  .micbar i{display:block; height:100%; width:0; background:var(--mint); border-radius:9px; transition:width .1s linear}
+
+  .actions{display:flex; gap:9px; align-items:flex-end; margin-left:auto}
+  .act{
+    appearance:none; border:1px solid var(--line); cursor:pointer; background:var(--panel);
+    color:var(--text); border-radius:14px; padding:12px 18px;
+    display:flex; align-items:center; gap:8px;
+    font:inherit; font-size:12px; font-weight:600; letter-spacing:.015em;
+    box-shadow:var(--ring); backdrop-filter:blur(14px);
+    transition:transform .16s cubic-bezier(.2,.9,.2,1), background .16s, border-color .16s, color .16s;
+  }
+  .act svg{width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+  .act:hover{transform:translateY(-2px); background:rgba(255,255,255,.09); border-color:var(--line-strong)}
+  .act:active{transform:translateY(-1px) scale(.97)}
+  .act.feed{color:#FFC9A6}
+  .act.play{color:#D6C8FF}
+  .act.sleep{color:#B7E7FF}
+  .act.primary{background:linear-gradient(180deg,rgba(255,212,121,.95),rgba(245,185,76,.92)); color:#221A10; border-color:transparent; box-shadow:0 16px 34px -18px rgba(255,190,90,.9)}
+  .act.primary:hover{background:linear-gradient(180deg,#FFDf9a,#F7C25C)}
+
+  /* ---------------- modal ---------------- */
+  .scrim{
+    position:fixed; inset:0; z-index:20; background:rgba(4,6,12,.62);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    display:none; align-items:flex-end; justify-content:center; padding:16px;
+  }
+  .scrim.open{display:flex}
+  .sheet{
+    width:min(580px,100%); max-height:88vh; overflow:auto;
+    background:linear-gradient(180deg,#151B2C,#0E1220); border:1px solid var(--line);
+    border-radius:22px; padding:22px; box-shadow:0 40px 100px -30px #000;
+    animation:rise .28s cubic-bezier(.2,.9,.2,1);
+  }
+  @keyframes rise{from{transform:translateY(20px); opacity:0}to{transform:none; opacity:1}}
+  .sheet-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:6px}
+  .sheet h3{margin:0; font-size:17px; letter-spacing:-.015em; font-weight:640}
+  .sheet .sub{margin:6px 0 18px; color:var(--dim); font-size:12.5px; line-height:1.55; max-width:46ch}
+  .field{display:flex; gap:8px; margin:9px 0}
+  input[type=text], input[type=password]{
+    flex:1; min-width:0; background:rgba(255,255,255,.045); color:var(--text);
+    border:1px solid var(--line); border-radius:11px; padding:11px 12px;
+    font:inherit; font-size:13.5px; transition:border-color .15s, background .15s;
+  }
+  input::placeholder{color:#5C6579}
+  input:focus{outline:none; border-color:rgba(255,180,122,.5); background:rgba(255,255,255,.06)}
+  .btn{
+    appearance:none; border:1px solid var(--line); cursor:pointer; background:rgba(255,255,255,.06);
+    color:var(--text); border-radius:11px; padding:11px 14px; font:inherit; font-weight:600;
+    font-size:12.5px; transition:background .15s, transform .12s, border-color .15s;
+  }
+  .btn:hover{background:rgba(255,255,255,.1); border-color:var(--line-strong)}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:linear-gradient(180deg,#FFD479,#F0B44B); color:#231A0F; border-color:transparent}
+  .btn.danger{color:#FFB4A2; border-color:rgba(255,143,107,.28); background:rgba(255,143,107,.07)}
+  .sect{border-top:1px solid rgba(255,255,255,.07); margin-top:18px; padding-top:16px}
+  .sect h4{margin:0 0 8px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--dim2); font-weight:650}
+  .hint{font-size:12px; color:var(--dim); line-height:1.6}
+  .kbd{font-family:ui-monospace,SFMono-Regular,monospace; font-size:11.5px; background:rgba(255,255,255,.07); padding:2px 6px; border-radius:5px; border:1px solid rgba(255,255,255,.07)}
+  .tag{display:inline-flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:#0F1420; background:var(--mint); border-radius:99px; padding:3px 9px; font-weight:750}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0}
+  .toast{
+    position:fixed; z-index:30; left:50%; bottom:calc(26px + env(safe-area-inset-bottom));
+    transform:translate(-50%,14px); background:rgba(247,241,234,.98); color:#171A24;
+    padding:9px 15px; border-radius:10px; font-size:12.5px; font-weight:600; opacity:0;
+    transition:opacity .2s, transform .2s; pointer-events:none; box-shadow:0 18px 40px -18px #000;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,0)}
+
+  @media (max-width:860px){
+    .vitals{width:100%; padding:12px 14px 10px}
+    .dock{flex-wrap:wrap; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); gap:10px}
+    .actions{flex:1 1 100%; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0}
+    .act{justify-content:center; padding:12px 6px; border-radius:13px}
+    .sensor-row{margin-top:8px; padding-top:8px}
+    .vitals-head{margin-bottom:8px}
+    .vrow{grid-template-columns:52px 1fr 28px; margin:6px 0}
+    .bondline{display:none}
+    .name{font-size:17px}
+    .kicker{font-size:8.5px}
+    .pill{height:34px; padding:0 10px; font-size:11px}
+    .statusline{top:calc(64px + env(safe-area-inset-top))}
+    #speech{font-size:13.5px; padding:10px 14px}
+  }
+  @media (max-width:420px){
+    .brand .mark{display:none}
+    .pill#wifiPill{padding:0 9px; gap:0}
+    .pill#wifiPill #link{display:none}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important}
+  }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<header>
+  <div class="brand">
+    <div class="mark"></div>
+    <div class="title-wrap">
+      <div class="kicker">DeskBuddy · ESP32-S3</div>
+      <div class="name-row">
+        <span class="name" id="name">DeskBuddy</span>
+        <span class="lvl" id="lvlPill"><i></i><span id="lvl">Lv 1</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="pill" id="wifiPill" title="network">
+      <span class="dot" id="dot"></span><span id="link">connecting</span>
+    </div>
+    <button class="icon-btn" id="gear" aria-label="settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="statusline">
+  <div class="mood-pill"><span class="face" id="moodDot"></span><span id="moodWord">happy</span><span id="ticker"></span></div>
+</div>
+
+<div id="speech"><span id="speechText"></span></div>
+
+<div class="dock">
+  <div class="panel vitals">
+    <div class="vitals-head"><span class="lab">Vitals</span><span class="age" id="age">just woke</span></div>
+    <div class="vrow"><label>happiness</label><div class="track"><i class="fill-mood" id="bHap"></i></div><span class="val" id="vHap">–</span></div>
+    <div class="vrow"><label>energy</label><div class="track"><i class="fill-energy" id="bEn"></i></div><span class="val" id="vEn">–</span></div>
+    <div class="vrow"><label>food</label><div class="track"><i class="fill-food" id="bFull"></i></div><span class="val" id="vFull">–</span></div>
+    <div class="vrow"><label>bond</label><div class="track"><i class="fill-bond" id="bBond"></i></div><span class="val" id="vBond">–</span></div>
+    <div class="sensor-row">
+      <div class="sitem hide" id="chipBatt"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10v4"/></svg><b>–</b></div>
+      <div class="sitem hide" id="chipLux"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><b>–</b></div>
+      <div class="sitem hide" id="chipMic"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="micbar"><i id="micFill"></i></span></div>
+      <div class="sitem hide" id="chipMove"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg><b>–</b></div>
+      <div class="sitem off" id="chipPhone">sensors offline</div>
+    </div>
+    <div class="bondline"><span>pets <b id="pets">0</b> · snacks <b id="feeds">0</b> · games <b id="plays">0</b></span><b id="bondTotal">0</b></div>
+  </div>
+
+  <div class="actions">
+    <button class="act feed" data-act="feed" title="Feed (F)">
+      <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/><circle cx="9" cy="9" r="1"/><circle cx="14.5" cy="8" r="1"/><circle cx="15" cy="14" r="1"/><circle cx="8.5" cy="15" r="1"/></svg>
+      <span>Feed</span>
+    </button>
+    <button class="act play" data-act="play" title="Play (P)">
+      <svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.2 7.5l2.1 2.1M17.7 14.4l2.1 2.1M3 12h3M18 12h3M4.2 16.5l2.1-2.1M17.7 9.6l2.1-2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <span>Play</span>
+    </button>
+    <button class="act sleep" id="sleepBtn" title="Sleep / wake (S)">
+      <svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/></svg>
+      <span id="sleepLabel">Sleep</span>
+    </button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>Settings</h3>
+      <button class="icon-btn" id="closeSheet" aria-label="close">
+        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <p class="sub">DeskBuddy runs on an ESP32-S3 with no screen and no sensors. This page is its face. Your old Android phone can be its eyes: it renders the same face and streams light, motion, sound and battery back.</p>
+
+    <div class="field">
+      <input type="text" id="nameInput" maxlength="18" placeholder="Name your buddy">
+      <button class="btn primary" id="saveName">Save</button>
+    </div>
+
+    <div class="sect">
+      <h4>Desk</h4>
+      <div class="row"><span class="hint">Sound effects</span><button class="btn" id="soundBtn">on</button></div>
+      <div class="row"><span class="hint">Phone sensors</span><span class="hint" id="phoneHint">waiting…</span></div>
+      <div class="hint">Open the DeskBuddy app on the Android phone, join this same WiFi, then enter
+        <span class="kbd" id="hostText">deskbuddy.local</span>. The phone becomes a second face plus the sensor pack.</div>
+    </div>
+
+    <div class="sect" id="wifiSect">
+      <div class="row"><span class="hint">Network</span><span class="tag" id="wifiTag">hotspot</span></div>
+      <div class="hint" id="wifiHelp">Join <b id="apName">DeskBuddy</b> / <b id="apPass">deskbuddy</b>, then save your home WiFi below. After the reboot open <b>http://deskbuddy.local</b>.</div>
+      <div class="field"><input type="text" id="ssidInput" placeholder="WiFi name (SSID)"></div>
+      <div class="field"><input type="password" id="passInput" placeholder="WiFi password"></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" id="saveWifi">Save &amp; reboot</button></div>
+    </div>
+
+    <div class="sect">
+      <div class="row"><span class="hint">Reset stats, bond and personality</span><button class="btn danger" id="resetBtn">Start over</button></div>
+      <div class="hint" style="margin-top:10px">Firmware 1.0 · <span id="about">esp32-s3</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var canvas = $("stage"), ctx = canvas.getContext("2d");
+  var W = 0, H = 0, DPR = 1;
+
+  var state = { name:"DeskBuddy", mood:"happy", hap:68, en:78, full:62, bond:0,
+                lvl:1, sleep:false, ap:0, apSsid:"", apPass:"", host:"deskbuddy.local",
+                pets:0, feeds:0, plays:0, age:0 };
+  var sensors = { batt:-1, lux:-1, mic:0, ax:0, ay:0, az:0, at:0 };
+  var ws = null, wsOpen = false, retry = 1000, pingTimer = 0;
+
+  // ---------------------------------------------------------------- visuals
+  var look = {
+    scale:1, sq:1, ox:0, oy:0, blink:0, blinkAt:0,
+    eyeX:0, eyeY:0, moodShift:0, mood:"happy",
+    tempMood:"", tempUntil:0
+  };
+  var fx = [];
+  var pointer = { x:0, y:0, has:false };
+  var bodyBox = { cx:0, cy:0, rx:0, ry:0 };
+  var t0 = performance.now();
+  var soundOn = true, audioCtx = null;
+  var forcedMood = (function(){
+    var m = location.search.match(/[?&]mood=([a-z]+)/);
+    return m ? m[1] : "";
+  })();
+  var wsHost = (function(){
+    var m = location.search.match(/[?&]ws=(\d+)/);
+    return m ? (location.hostname + ":" + m[1]) : location.host;
+  })();
+
+  var MOODS = {
+    happy:    { eye:1.00, pupil:1.00, mouth:"smile",  blush:.55, glow:"#FFB47A", color:"#FFE6CF" },
+    curious:  { eye:1.10, pupil:1.18, mouth:"small",  blush:.30, glow:"#9EE7FF", color:"#FFE9D6" },
+    sleepy:   { eye:0.40, pupil:0.90, mouth:"flat",   blush:.35, glow:"#7FA8FF", color:"#FFEDDD" },
+    sleeping: { eye:0.10, pupil:0.80, mouth:"flat",   blush:.30, glow:"#6F86FF", color:"#FFEDDD" },
+    hungry:   { eye:1.05, pupil:1.05, mouth:"open",   blush:.40, glow:"#FFC078", color:"#FFE3C6" },
+    annoyed:  { eye:0.72, pupil:0.95, mouth:"frown",  blush:.25, glow:"#FF8F6B", color:"#FFDCC6" },
+    dizzy:    { eye:1.00, pupil:0.00, mouth:"wave",   blush:.45, glow:"#C9A2FF", color:"#FFE6CF" },
+    love:     { eye:1.05, pupil:1.10, mouth:"smile",  blush:.95, glow:"#FF9BB8", color:"#FFE1D2" },
+    startled: { eye:1.30, pupil:0.62, mouth:"o",      blush:.30, glow:"#FFD479", color:"#FFEBD8" },
+    bored:    { eye:0.60, pupil:0.85, mouth:"flat",   blush:.25, glow:"#9FB0C9", color:"#F7E3D2" },
+    excited:  { eye:1.15, pupil:1.25, mouth:"open",   blush:.70, glow:"#FF9BD2", color:"#FFE8D2" }
+  };
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px"; canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layout();
+    positionSpeech();
+  }
+  function layout(){
+    var mobile = W <= 860;
+    var dockH = mobile ? 245 : 170;
+    var avail = H - dockH - 110;
+    var r = Math.min(W * (mobile ? 0.33 : 0.235), avail * 0.38, mobile ? 168 : 182);
+    r = Math.max(r, 68);
+    bodyBox.rx = r * 1.06;
+    bodyBox.ry = r * 1.0;
+    bodyBox.cx = W / 2;
+    bodyBox.cy = mobile ? Math.max(230, H * 0.44)
+                        : Math.max(170 + bodyBox.ry * .82, H * 0.455);
+    if (H < 560) bodyBox.cy = H * 0.40;
+  }
+  window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", function(){ setTimeout(resize, 250); });
+
+  // ------------------------------------------------------------- connection
+  function setLink(on, text){
+    wsOpen = on;
+    $("dot").className = "dot " + (on ? "on" : "off");
+    $("link").textContent = text || (on ? "linked" : "reconnecting");
+  }
+  function connect(){
+    var proto = location.protocol === "https:" ? "wss://" : "ws://";
+    try { ws = new WebSocket(proto + wsHost + "/ws"); }
+    catch(e){ setTimeout(connect, 1500); return; }
+    ws.onopen = function(){
+      retry = 1000;
+      setLink(true, "linked");
+      send({t:"hello"});
+      if (pingTimer) clearInterval(pingTimer);
+      pingTimer = setInterval(function(){ send({t:"ping"}); }, 12000);
+    };
+    ws.onmessage = function(ev){ onMessage(ev.data); };
+    ws.onclose = function(){
+      setLink(false, "offline");
+      if (pingTimer) { clearInterval(pingTimer); pingTimer = 0; }
+      setTimeout(connect, retry);
+      retry = Math.min(retry * 1.7, 8000);
+    };
+    ws.onerror = function(){ try { ws.close(); } catch(e){} };
+  }
+  function send(obj){
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+  }
+  function onMessage(raw){
+    var m;
+    try { m = JSON.parse(raw); } catch(e){ return; }
+    if (m.t === "state" || (m.t === "hello" && m.state)) {
+      applyState(m.state || m);
+      if (m.t === "hello") {
+        if (typeof m.ap !== "undefined") state.ap = m.ap;
+        if (m.apSsid) state.apSsid = m.apSsid;
+        if (m.apPass) state.apPass = m.apPass;
+        refreshSettings();
+      }
+    } else if (m.t === "react") {
+      react(m.e, m.v || 1, m.x, m.y);
+    } else if (m.t === "say") {
+      speak(m.text);
+    } else if (m.t === "sens") {
+      sensors.batt = m.batt; sensors.lux = m.lux; sensors.mic = m.mic;
+      sensors.ax = m.ax; sensors.ay = m.ay; sensors.az = m.az;
+      sensors.at = performance.now();
+      refreshSensors();
+    }
+  }
+  function applyState(s){
+    if (typeof s.hap === "undefined") return;
+    state.hap = s.hap; state.en = s.en; state.full = s.full;
+    state.bond = s.bond || 0; state.lvl = s.lvl || 1;
+    state.sleep = !!s.sleep; state.mood = forcedMood || (s.mood || "happy");
+    state.pets = s.pets || 0; state.feeds = s.feeds || 0; state.plays = s.plays || 0;
+    state.age = s.age || 0;
+    if (s.name && s.name !== state.name) {
+      state.name = s.name;
+      $("name").textContent = s.name;
+      try { localStorage.setItem("db_name", s.name); } catch(e){}
+    }
+    $("lvl").textContent = "Lv " + state.lvl;
+    $("vHap").textContent = Math.round(state.hap);
+    $("vEn").textContent = Math.round(state.en);
+    $("vFull").textContent = Math.round(state.full);
+    $("vBond").textContent = Math.round(state.bond) + "";
+    $("bHap").style.width = clamp(state.hap,0,100) + "%";
+    $("bEn").style.width = clamp(state.en,0,100) + "%";
+    $("bFull").style.width = clamp(state.full,0,100) + "%";
+    $("bBond").style.width = clamp(state.bond % 100,0,100) + "%";
+    $("pets").textContent = state.pets;
+    $("feeds").textContent = state.feeds;
+    $("plays").textContent = state.plays;
+    $("bondTotal").textContent = state.bond + " bond";
+    $("age").textContent = state.age > 3600
+      ? Math.floor(state.age/3600) + "h " + Math.floor((state.age%3600)/60) + "m awake"
+      : Math.floor(state.age/60) + "m " + (state.age%60) + "s awake";
+    $("moodWord").textContent = state.sleep ? "sleeping" : state.mood;
+    $("moodDot").style.background = (MOODS[state.sleep ? "sleeping" : state.mood] || MOODS.happy).glow;
+    $("moodDot").style.boxShadow = "0 0 10px " + (MOODS[state.sleep ? "sleeping" : state.mood] || MOODS.happy).glow;
+    $("sleepLabel").textContent = state.sleep ? "Wake" : "Sleep";
+    if (performance.now() > look.tempUntil) look.mood = state.sleep ? "sleeping" : state.mood;
+  }
+  function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+
+  function refreshSensors(){
+    var fresh = sensors.at > 0 && performance.now() - sensors.at < 5000;
+    var move = Math.sqrt(sensors.ax*sensors.ax + sensors.ay*sensors.ay + sensors.az*sensors.az) || 0;
+    $("chipPhone").className = "sitem " + (fresh ? "hide" : "off");
+    $("chipBatt").className = "sitem " + (fresh && sensors.batt >= 0 ? "" : "hide");
+    $("chipLux").className = "sitem " + (fresh && sensors.lux >= 0 ? "" : "hide");
+    $("chipMic").className = "sitem " + (fresh ? "" : "hide");
+    $("chipMove").className = "sitem " + (fresh ? "" : "hide");
+    if (sensors.batt >= 0) $("chipBatt").lastElementChild.textContent = Math.round(sensors.batt) + "%";
+    if (sensors.lux >= 0) $("chipLux").lastElementChild.textContent = Math.round(sensors.lux) + " lx";
+    $("micFill").style.width = Math.round(clamp(sensors.mic,0,1) * 100) + "%";
+    $("chipMove").lastElementChild.textContent = move.toFixed(1) + " m/s²";
+    $("phoneHint").textContent = fresh ? "connected" : "waiting for phone…";
+  }
+  setInterval(refreshSensors, 1500);
+
+  // ---------------------------------------------------------------- reactions
+  function react(e, v, x, y){
+    var now = performance.now();
+    switch(e){
+      case "pet":
+        look.tempMood = "love"; look.tempUntil = now + 1400;
+        look.sq = 1.05; burst("heart", 2 + (v > .9 ? 1 : 0));
+        chirp(660 + Math.random()*120, .07, .04); tick("petted");
+        break;
+      case "poke":
+        look.tempMood = "startled"; look.tempUntil = now + 850;
+        look.sq = 0.90; look.ox = (Math.random()-.5) * 14;
+        burst("spark", 4); chirp(420, .06, .05); tick("booped");
+        break;
+      case "feed":
+        look.tempMood = "happy"; look.tempUntil = now + 1800;
+        burst("crumb", 10); chirp(520,.09,.05); setTimeout(function(){chirp(700,.09,.05);}, 90);
+        tick("snack time"); toast("nom nom");
+        break;
+      case "play":
+        look.tempMood = "excited"; look.tempUntil = now + 2600;
+        burst("spark", 16); chirp(590,.08,.05);
+        setTimeout(function(){chirp(740,.08,.05);},80);
+        setTimeout(function(){chirp(880,.10,.05);},160);
+        tick("zoomies");
+        break;
+      case "sleep":
+        look.tempMood = "sleeping"; look.tempUntil = now + 4000;
+        burst("zzz", 1); chirp(300,.14,.04); tick("asleep");
+        break;
+      case "wake":
+        look.tempMood = "sleepy"; look.tempUntil = now + 2500;
+        chirp(500,.1,.05); tick("woke up");
+        break;
+      case "shake":
+        look.tempMood = "dizzy"; look.tempUntil = now + 2200;
+        burst("dizzy", 1); look.ox = 10; tick("shaken");
+        break;
+      case "noise":
+        look.tempMood = "startled"; look.tempUntil = now + 1100;
+        burst("spark", 5); tick("heard something");
+        break;
+      case "level":
+        look.tempMood = "excited"; look.tempUntil = now + 3200;
+        burst("confetti", 26);
+        chirp(660,.1,.06); setTimeout(function(){chirp(880,.1,.06);},120);
+        setTimeout(function(){chirp(1100,.16,.06);},240);
+        tick("level up"); toast("level up!");
+        break;
+      case "name": tick("renamed"); toast("hello, " + state.name); break;
+      case "dark": tick("lights off"); break;
+      case "bright": tick("lights on"); break;
+      case "reset": tick("reset"); toast("fresh start"); break;
+      default: break;
+    }
+  }
+  function tick(text){
+    var el = $("ticker");
+    el.textContent = "· " + text;
+    el.className = "show";
+    clearTimeout(tick._t);
+    tick._t = setTimeout(function(){ el.className = ""; }, 3200);
+  }
+  function burst(kind, n){
+    for (var i=0;i<n;i++){
+      var a = -Math.PI/2 + (Math.random()-.5) * 2.1;
+      if (kind === "confetti") a = Math.random() * Math.PI * 2;
+      fx.push({
+        kind: kind,
+        x: bodyBox.cx + (Math.random()-.5) * bodyBox.rx * 1.1,
+        y: bodyBox.cy - bodyBox.ry * (0.15 + Math.random()*0.5),
+        vx: Math.cos(a) * (26 + Math.random()*85),
+        vy: Math.sin(a) * (26 + Math.random()*85) - (kind==="confetti"? 70: 26),
+        life: 0, max: 1.2 + Math.random()*1.1,
+        size: 6 + Math.random()*8,
+        rot: (Math.random()-.5) * 2,
+        hue: Math.random()
+      });
+    }
+  }
+  function speak(text){
+    if (!text) return;
+    $("speechText").textContent = text;
+    $("speech").className = "show";
+    positionSpeech();
+    clearTimeout(speak._t);
+    speak._t = setTimeout(function(){ $("speech").className = ""; }, Math.min(9000, 2600 + text.length * 55));
+  }
+  function positionSpeech(){
+    var el = $("speech");
+    var top = bodyBox.cy - bodyBox.ry - 58;
+    if (top < 118) top = 118;
+    el.style.top = top + "px";
+  }
+  function toast(text){
+    var t = $("toast");
+    t.textContent = text; t.className = "toast show";
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function(){ t.className = "toast"; }, 1800);
+  }
+
+  // ------------------------------------------------------------------ audio
+  function chirp(freq, dur, gain){
+    if (!soundOn) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(gain || .05, audioCtx.currentTime + .01);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + dur + .02);
+    } catch(e){}
+  }
+
+  // -------------------------------------------------------------------- draw
+  function now(){ return performance.now(); }
+  function draw(){
+    var t = (now() - t0) / 1000;
+    requestAnimationFrame(draw);
+
+    var moodKey = (look.tempUntil > now() && look.tempMood) ? look.tempMood : (state.sleep ? "sleeping" : state.mood);
+    if (!MOODS[moodKey]) moodKey = "happy";
+    var M = MOODS[moodKey];
+    if (moodKey !== look.mood) { look.mood = moodKey; look.moodShift = 0; }
+
+    var focusX = 0, focusY = 0;
+    if (pointer.has) {
+      focusX = clamp((pointer.x - bodyBox.cx) / (bodyBox.rx * 1.6), -1, 1);
+      focusY = clamp((pointer.y - bodyBox.cy) / (bodyBox.ry * 1.6), -1, 1);
+    }
+    var wanderX = Math.sin(t * .37) * .22 + Math.sin(t * .83 + 1.7) * .12;
+    var wanderY = Math.cos(t * .29) * .14 + Math.sin(t * .61) * .1;
+    if (pointer.has) { focusX = focusX * .75 + wanderX * .25; focusY = focusY * .75 + wanderY * .25; }
+    else { focusX = wanderX; focusY = wanderY; }
+    look.eyeX += (focusX - look.eyeX) * .12;
+    look.eyeY += (focusY - look.eyeY) * .12;
+
+    var blink = 0;
+    if (now() > look.blinkAt && moodKey !== "sleeping") {
+      var p = (now() - look.blinkAt) / 150;
+      if (p < 1) blink = Math.sin(p * Math.PI);
+      else if (Math.random() < .35) look.blinkAt = now() + 180 + Math.random()*120;
+      else look.blinkAt = now() + 2200 + Math.random() * 4200;
+    }
+    if (moodKey === "sleeping") blink = 1 - M.eye;
+
+    look.sq += (1 - look.sq) * .08;
+    look.ox *= .86; look.oy *= .86;
+
+    var breath = Math.sin(t * 1.5) * .012 + 1;
+    var bounce = (moodKey === "excited") ? Math.abs(Math.sin(t * 5.2)) * .045 : 0;
+    var sc = look.scale * (1 + (look.sq - 1) * .5) * breath;
+    var sx = 1 + (look.sq - 1) * .8;
+    var sy = (2 - look.sq);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // ambient light behind the buddy
+    var glowR = Math.max(bodyBox.rx * 2.9, 250);
+    var g = ctx.createRadialGradient(bodyBox.cx, bodyBox.cy - 16, 8, bodyBox.cx, bodyBox.cy, glowR);
+    g.addColorStop(0, hexA(M.glow, .20));
+    g.addColorStop(.42, hexA(M.glow, .07));
+    g.addColorStop(1, hexA(M.glow, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(bodyBox.cx - glowR, bodyBox.cy - glowR, glowR*2, glowR*2);
+
+    // contact shadow
+    ctx.save();
+    ctx.globalAlpha = .42;
+    var sh = ctx.createRadialGradient(bodyBox.cx, bodyBox.cy + bodyBox.ry + 16, 2, bodyBox.cx, bodyBox.cy + bodyBox.ry + 16, bodyBox.rx * .9);
+    sh.addColorStop(0, "rgba(0,0,0,.75)");
+    sh.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = sh;
+    ctx.beginPath();
+    ctx.ellipse(bodyBox.cx, bodyBox.cy + bodyBox.ry + 16, bodyBox.rx * .85 * sc, 26 * sc, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(bodyBox.cx + look.ox, bodyBox.cy + look.oy + bounce * 40);
+    ctx.scale(sc * sx, sc * sy);
+
+    var rx = bodyBox.rx, ry = bodyBox.ry;
+
+    // little feet, peeking out from under the body
+    ctx.fillStyle = shade(M.color, -30);
+    ctx.beginPath(); ctx.ellipse(-rx*.32, ry*.97, rx*.2, ry*.075, -.06, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( rx*.32, ry*.97, rx*.2, ry*.075,  .06, 0, Math.PI*2); ctx.fill();
+
+    // antenna with a mood-coloured tip
+    ctx.save();
+    ctx.strokeStyle = shade(M.color, -22);
+    ctx.lineWidth = Math.max(2.4, rx*.022);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, -ry*.94);
+    ctx.quadraticCurveTo(rx*.02, -ry*1.16, rx*.09, -ry*1.26);
+    ctx.stroke();
+    var tipX = rx*.09, tipY = -ry*1.29;
+    var tipG = ctx.createRadialGradient(tipX, tipY, 1, tipX, tipY, rx*.16);
+    tipG.addColorStop(0, M.glow);
+    tipG.addColorStop(1, hexA(M.glow, 0));
+    ctx.globalAlpha = .55 + .35 * Math.sin(t * 2.4);
+    ctx.fillStyle = tipG;
+    ctx.beginPath(); ctx.arc(tipX, tipY, rx*.16, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = M.glow;
+    ctx.beginPath(); ctx.arc(tipX, tipY, rx*.045, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    bodyPath(ctx, rx, ry);
+
+    var bg = ctx.createLinearGradient(0, -ry, 0, ry * 1.04);
+    bg.addColorStop(0, "#FFF8EE");
+    bg.addColorStop(.38, M.color);
+    bg.addColorStop(.82, shade(M.color, -10));
+    bg.addColorStop(1, shade(M.color, -26));
+    ctx.fillStyle = bg;
+    ctx.fill();
+
+    // inner shading + rim
+    ctx.save();
+    ctx.clip();
+    var inner = ctx.createRadialGradient(-rx*.32, -ry*.46, rx*.1, 0, 0, rx*1.55);
+    inner.addColorStop(0, "rgba(255,255,255,.55)");
+    inner.addColorStop(.42, "rgba(255,255,255,0)");
+    inner.addColorStop(1, "rgba(86,48,34,.22)");
+    ctx.fillStyle = inner;
+    ctx.fillRect(-rx*1.2, -ry*1.2, rx*2.4, ry*2.4);
+
+    // bottom bounce light
+    var bl = ctx.createLinearGradient(0, ry*.3, 0, ry);
+    bl.addColorStop(0, "rgba(255,160,120,0)");
+    bl.addColorStop(1, hexA(M.glow, .22));
+    ctx.fillStyle = bl;
+    ctx.fillRect(-rx, ry*.3, rx*2, ry*.8);
+
+    // specular
+    ctx.globalAlpha = .5;
+    ctx.fillStyle = "rgba(255,255,255,.85)";
+    ctx.beginPath();
+    ctx.ellipse(-rx*.46, -ry*.56, rx*.2, ry*.1, -.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // contour
+    bodyPath(ctx, rx, ry);
+    ctx.strokeStyle = "rgba(84,50,36,.16)";
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    // cheek blush
+    if (M.blush > .01) {
+      ctx.save();
+      ctx.globalAlpha = M.blush * (.6 + .4 * Math.sin(t * 2.1));
+      for (var k = -1; k <= 1; k += 2) {
+        ctx.save();
+        ctx.translate(k * rx * .57, ry * .2);
+        var cg = ctx.createRadialGradient(0, 0, 1, 0, 0, rx * .25);
+        cg.addColorStop(0, "rgba(255,132,138,.95)");
+        cg.addColorStop(.55, "rgba(255,132,138,.55)");
+        cg.addColorStop(1, "rgba(255,132,138,0)");
+        ctx.fillStyle = cg;
+        ctx.beginPath(); ctx.ellipse(0, 0, rx*.25, ry*.155, k * .18, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    // eyes
+    var eyeY = -ry * .10;
+    var eyeDX = rx * .355;
+    var er = rx * .215;
+    var eyeScaleY = M.eye * (1 - blink) + .06;
+    if (eyeScaleY < .06) eyeScaleY = .06;
+
+    for (var s = -1; s <= 1; s += 2) {
+      var ex = s * eyeDX, ey = eyeY;
+      ctx.save();
+      ctx.translate(ex, ey);
+      ctx.scale(1, eyeScaleY);
+
+      if (blink > .92 || moodKey === "sleeping") {
+        ctx.strokeStyle = "#2C2537";
+        ctx.lineWidth = rx * .028;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(-er*.82, 0);
+        ctx.quadraticCurveTo(0, er*.34, er*.82, 0);
+        ctx.stroke();
+      } else if (moodKey === "dizzy") {
+        ctx.strokeStyle = "#2C2537";
+        ctx.lineWidth = rx * .018;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        for (var i=0;i<58;i++){
+          var ang = i*0.42 + t*5.2*(s>0?1:-1);
+          var rad = er * .1 * (i/7);
+          var px = Math.cos(ang)*rad, py = Math.sin(ang)*rad;
+          if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+        ctx.stroke();
+      } else if (moodKey === "love") {
+        heart(ctx, 0, 0, er * 1.15, "#E2556F");
+      } else {
+        // eye shadow
+        ctx.fillStyle = "rgba(110,70,60,.12)";
+        ctx.beginPath();
+        ctx.ellipse(0, -er*.15, er*.98, er*1.06, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = "#221D2E";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, er * .9, er * 1.0, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        var pr = er * .5 * M.pupil;
+        ctx.save();
+        ctx.translate(look.eyeX * er * .42, look.eyeY * er * .38);
+        ctx.fillStyle = "#0B0D18";
+        ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,.95)";
+        ctx.beginPath(); ctx.arc(-pr*.42, -pr*.52, pr*.44, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,.5)";
+        ctx.beginPath(); ctx.arc(pr*.36, pr*.44, pr*.18, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+
+      if (eyeScaleY < .72 && moodKey !== "sleeping") {
+        ctx.save();
+        ctx.globalAlpha = .18;
+        ctx.strokeStyle = "#7A584A";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(ex - er*.9, ey - er*.62);
+        ctx.quadraticCurveTo(ex, ey - er*.92, ex + er*.9, ey - er*.62);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    drawBrows(ctx, moodKey, rx, ry, eyeY, eyeDX, er, t);
+    drawMouth(ctx, 0, ry * .33, rx, ry, M.mouth, t);
+
+    ctx.restore();
+
+    drawFx(t);
+    if (moodKey === "sleeping") drawZzz(t);
+  }
+
+  function bodyPath(c, rx, ry){
+    c.beginPath();
+    c.moveTo(0, -ry);
+    c.bezierCurveTo(rx*.62, -ry, rx*.98, -ry*.43, rx*1.01, ry*.10);
+    c.bezierCurveTo(rx*1.03, ry*.76, rx*.56, ry, 0, ry);
+    c.bezierCurveTo(-rx*.56, ry, -rx*1.03, ry*.76, -rx*1.01, ry*.10);
+    c.bezierCurveTo(-rx*.98, -ry*.43, -rx*.62, -ry, 0, -ry);
+    c.closePath();
+  }
+
+  function drawBrows(c, mood, rx, ry, eyeY, eyeDX, er, t){
+    var slant = 0, lift = 1.36, alpha = .45;
+    if (mood === "annoyed") { slant = .48; lift = 1.22; alpha = .74; }
+    else if (mood === "startled") { slant = -.1; lift = 1.55; alpha = .5; }
+    else if (mood === "excited") { slant = -.14; lift = 1.48; alpha = .42; }
+    else if (mood === "bored") { slant = .04; lift = 1.22; alpha = .28; }
+    else if (mood === "hungry") { slant = -.08; lift = 1.45; alpha = .38; }
+    else return;
+
+    c.save();
+    c.globalAlpha = alpha;
+    c.strokeStyle = "#4A3340";
+    c.lineWidth = Math.max(2.2, rx * .022);
+    c.lineCap = "round";
+    for (var s = -1; s <= 1; s += 2) {
+      var cx = s * eyeDX;
+      var y = eyeY - er * lift;
+      c.beginPath();
+      c.moveTo(cx + s * er * .8, y - er * slant * .5);
+      c.quadraticCurveTo(cx, y - er * .1, cx - s * er * .78, y + er * slant * .7);
+      c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawMouth(c, x, y, rx, ry, mood, t){
+    c.save();
+    c.translate(x, y);
+    c.lineCap = "round"; c.lineJoin = "round";
+    c.strokeStyle = "#3A2A38"; c.fillStyle = "#3A2A38";
+    c.lineWidth = Math.max(3, rx * .03);
+
+    if (mood === "open" || mood === "excited") {
+      var w = rx * .175, h = ry * .145 * (1 + Math.sin(t*7)*.06);
+      c.beginPath(); c.ellipse(0, 0, w, h, 0, 0, Math.PI*2); c.fill();
+      c.save(); c.globalAlpha = .85; c.fillStyle = "#FF9DA6";
+      c.beginPath(); c.ellipse(0, h*.42, w*.62, h*.42, 0, 0, Math.PI*2); c.fill();
+      c.restore();
+    } else if (mood === "smile") {
+      c.beginPath();
+      c.moveTo(-rx*.195, -ry*.025);
+      c.quadraticCurveTo(0, ry*.155, rx*.195, -ry*.025);
+      c.stroke();
+    } else if (mood === "frown") {
+      c.beginPath();
+      c.moveTo(-rx*.15, ry*.06);
+      c.quadraticCurveTo(0, -ry*.065, rx*.15, ry*.06);
+      c.stroke();
+    } else if (mood === "o") {
+      c.beginPath(); c.ellipse(0, 0, rx*.06, ry*.082, 0, 0, Math.PI*2); c.fill();
+    } else if (mood === "wave") {
+      c.beginPath();
+      var ph = t * 9;
+      for (var i=0;i<=20;i++){
+        var px = -rx*.18 + (rx*.36) * (i/20);
+        var py = Math.sin(ph + i*0.7) * ry * .038;
+        if (i===0) c.moveTo(px,py); else c.lineTo(px,py);
+      }
+      c.stroke();
+    } else if (mood === "small") {
+      c.beginPath(); c.arc(0, -ry*.01, rx*.062, .15, Math.PI - .15); c.stroke();
+    } else {
+      c.beginPath(); c.moveTo(-rx*.13, 0); c.lineTo(rx*.13, 0); c.stroke();
+    }
+    c.restore();
+  }
+
+  function drawFx(t){
+    for (var i = fx.length - 1; i >= 0; i--) {
+      var p = fx[i];
+      p.life += 1/60;
+      p.x += p.vx / 60; p.y += p.vy / 60;
+      p.vy += (p.kind === "confetti" ? 150 : -6) / 60;
+      p.vx *= .995;
+      var a = 1 - p.life / p.max;
+      if (a <= 0) { fx.splice(i, 1); continue; }
+      ctx.save();
+      ctx.globalAlpha = clamp(a, 0, 1);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * p.life);
+      if (p.kind === "heart") heart(ctx, 0, 0, p.size * 1.15, "#FF7D9C");
+      else if (p.kind === "spark") { ctx.fillStyle = "#FFDF8A"; star(ctx, p.size * .6); }
+      else if (p.kind === "confetti") {
+        ctx.fillStyle = ["#FFD479","#8FE3C0","#FF8F6B","#B9A7FF","#9EE7FF"][i % 5];
+        ctx.fillRect(-p.size*.35, -p.size*.2, p.size*.7, p.size*.4);
+      } else if (p.kind === "crumb") {
+        ctx.fillStyle = "#C98A5B";
+        ctx.beginPath(); ctx.arc(0,0,p.size*.26,0,Math.PI*2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawZzz(t){
+    ctx.save();
+    ctx.fillStyle = "rgba(200,215,255,.8)";
+    for (var i=0;i<3;i++){
+      var k = (t*.35 + i*.33) % 1;
+      var x = bodyBox.cx + bodyBox.rx * (.45 + k*.45);
+      var y = bodyBox.cy - bodyBox.ry * (.55 + k*.55);
+      ctx.globalAlpha = Math.sin(k*Math.PI) * .85;
+      ctx.font = "600 " + (11 + k*15) + "px ui-sans-serif,system-ui,sans-serif";
+      ctx.fillText("z", x, y);
+    }
+    ctx.restore();
+  }
+
+  function heart(c, x, y, s, color){
+    c.save(); c.translate(x, y); c.scale(s/16, s/16);
+    c.fillStyle = color;
+    c.beginPath();
+    c.moveTo(0, 6);
+    c.bezierCurveTo(-14, -4, -9, -16, 0, -9);
+    c.bezierCurveTo(9, -16, 14, -4, 0, 6);
+    c.closePath(); c.fill();
+    c.restore();
+  }
+  function star(c, s){
+    c.beginPath();
+    for (var i=0;i<8;i++){
+      var a = i * Math.PI/4;
+      var r = (i%2===0) ? s : s*.38;
+      c.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+    }
+    c.closePath(); c.fill();
+  }
+  function shade(hex, amt){
+    var n = parseInt(hex.slice(1), 16);
+    var r = clamp((n>>16) + amt, 0, 255), g = clamp(((n>>8)&255) + amt, 0, 255), b = clamp((n&255) + amt, 0, 255);
+    return "#" + ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1);
+  }
+  function hexA(hex, a){
+    var n = parseInt(hex.slice(1), 16);
+    return "rgba(" + (n>>16) + "," + ((n>>8)&255) + "," + (n&255) + "," + a + ")";
+  }
+
+  // ------------------------------------------------------------------- input
+  function normPos(e){
+    var r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left), y: (e.clientY - r.top) };
+  }
+  canvas.addEventListener("pointermove", function(e){
+    var p = normPos(e);
+    pointer.x = p.x; pointer.y = p.y; pointer.has = true;
+    if (pet.active) petMove(p);
+  });
+  canvas.addEventListener("pointerleave", function(){ pointer.has = false; });
+
+  var pet = { active:false, moved:0, start:0, lastSend:0, x0:0, y0:0 };
+  canvas.addEventListener("pointerdown", function(e){
+    if (!audioCtx && soundOn) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(err){} }
+    var p = normPos(e);
+    pet.active = true; pet.moved = 0; pet.start = now();
+    pet.x0 = p.x; pet.y0 = p.y; pet.lastSend = 0;
+    pointer.x = p.x; pointer.y = p.y; pointer.has = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+  });
+  canvas.addEventListener("pointerup", function(e){
+    if (!pet.active) return;
+    pet.active = false;
+    var dt = now() - pet.start;
+    if (dt < 260 && pet.moved < 14) send({t:"touch", kind:"tap", x:normX(pet.x0), y:normY(pet.y0)});
+  });
+  canvas.addEventListener("pointercancel", function(){ pet.active = false; });
+  function petMove(p){
+    pet.moved += Math.abs(p.x - pet.x0) + Math.abs(p.y - pet.y0);
+    var n = now();
+    if (n - pet.lastSend > 110) {
+      pet.lastSend = n;
+      send({t:"touch", kind:"pet", v:0.55, x:normX(p.x), y:normY(p.y)});
+    }
+  }
+  function normX(x){ return clamp((x - bodyBox.cx) / (bodyBox.rx*2) + .5, 0, 1); }
+  function normY(y){ return clamp((y - bodyBox.cy) / (bodyBox.ry*2) + .5, 0, 1); }
+
+  // ----------------------------------------------------------------- controls
+  Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function(btn){
+    btn.addEventListener("click", function(){ send({t:"cmd", c:btn.getAttribute("data-act")}); });
+  });
+  $("gear").addEventListener("click", function(){ $("scrim").className = "scrim open"; refreshSettings(); });
+  $("closeSheet").addEventListener("click", function(){ $("scrim").className = "scrim"; });
+  $("scrim").addEventListener("click", function(e){
+    if (e.target === $("scrim")) $("scrim").className = "scrim";
+  });
+  $("saveName").addEventListener("click", function(){
+    var v = $("nameInput").value.trim();
+    if (v) { send({t:"cmd", c:"rename", v:v}); toast("saved"); }
+  });
+  $("saveWifi").addEventListener("click", function(){
+    var s = $("ssidInput").value.trim(), p = $("passInput").value;
+    if (!s) { toast("enter a WiFi name"); return; }
+    toast("saving…");
+    setTimeout(function(){
+      location.href = "/setup?ssid=" + encodeURIComponent(s) + "&pass=" + encodeURIComponent(p);
+    }, 200);
+  });
+  $("resetBtn").addEventListener("click", function(){
+    if (confirm("Reset stats, bond and personality?")) send({t:"cmd", c:"reset"});
+  });
+  $("soundBtn").addEventListener("click", function(){
+    soundOn = !soundOn;
+    $("soundBtn").textContent = soundOn ? "on" : "off";
+    try { localStorage.setItem("db_sound", soundOn ? "1" : "0"); } catch(e){}
+  });
+  $("sleepBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    send({t:"cmd", c: state.sleep ? "wake" : "sleep"});
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    var k = e.key.toLowerCase();
+    if (k === "f") send({t:"cmd", c:"feed"});
+    else if (k === "p") send({t:"cmd", c:"play"});
+    else if (k === "s") send({t:"cmd", c: state.sleep ? "wake" : "sleep"});
+    else if (k === "escape") $("scrim").className = "scrim";
+  });
+
+  function refreshSettings(){
+    $("nameInput").value = state.name;
+    $("wifiTag").textContent = state.ap ? "hotspot mode" : "connected";
+    $("wifiTag").style.background = state.ap ? "#FFD479" : "#8FE3C0";
+    $("apName").textContent = state.apSsid || "DeskBuddy-XXXX";
+    $("apPass").textContent = state.apPass || "deskbuddy";
+    $("hostText").textContent = location.hostname || "deskbuddy.local";
+    $("about").textContent = "ESP32-S3 · " + (location.hostname || "local");
+    $("phoneHint").textContent = (now() - sensors.at < 5000) ? "connected" : "waiting for phone…";
+  }
+
+  function status(){
+    try {
+      var x = new XMLHttpRequest();
+      x.open("GET", "/api/status", true);
+      x.onload = function(){
+        try {
+          var d = JSON.parse(x.responseText);
+          state.ap = d.ap; state.apSsid = d.apSsid; state.apPass = d.apPass;
+          if (d.state) applyState(d.state);
+          refreshSettings();
+        } catch(e){}
+      };
+      x.send();
+    } catch(e){}
+  }
+
+  // boot
+  try {
+    var s = localStorage.getItem("db_sound");
+    if (s === "0") { soundOn = false; $("soundBtn").textContent = "off"; }
+  } catch(e){}
+  resize();
+  refreshSensors();
+  status();
+  connect();
+  requestAnimationFrame(draw);
+  document.addEventListener("gesturestart", function(e){ e.preventDefault(); });
+})();
+</script>
+</body>
+</html>
