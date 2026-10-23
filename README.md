@@ -1,5 +1,7 @@
 # DeskBuddy
 
+[![build](https://github.com/priyanshucpc7/desk-buddy/actions/workflows/build.yml/badge.svg)](https://github.com/priyanshucpc7/desk-buddy/actions/workflows/build.yml)
+
 A desk pet for an **ESP32-S3 with no display and no sensors**.
 
 The board is the brain. Your laptop's browser is the face. An old Android phone —
