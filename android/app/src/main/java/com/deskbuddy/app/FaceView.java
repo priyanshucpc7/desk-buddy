@@ -189,7 +189,7 @@ public class FaceView extends View {
         if (w <= 0 || h <= 0) return;
         float radius;
         if (faceOnly) {
-            radius = Math.min(w * 0.40f, h * 0.28f);
+            radius = Math.min(w * 0.46f, h * 0.30f);
             if (radius < 60 * density) radius = 60 * density;
             rx = radius * 1.06f;
             ry = radius;
