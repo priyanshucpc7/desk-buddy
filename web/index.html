@@ -533,7 +533,8 @@
     $("age").textContent = state.age > 3600
       ? Math.floor(state.age/3600) + "h " + Math.floor((state.age%3600)/60) + "m awake"
       : Math.floor(state.age/60) + "m " + (state.age%60) + "s awake";
-    $("moodWord").textContent = state.sleep ? "sleeping" : state.mood;
+    if (!(now() < robot.danceUntil) && !(now() < robot.singUntil))
+      $("moodWord").textContent = state.sleep ? "sleeping" : state.mood;
     $("moodDot").style.background = (MOODS[state.sleep ? "sleeping" : state.mood] || MOODS.happy).glow;
     $("moodDot").style.boxShadow = "0 0 10px " + (MOODS[state.sleep ? "sleeping" : state.mood] || MOODS.happy).glow;
     $("sleepLabel").textContent = state.sleep ? "Wake" : "Sleep";
@@ -743,7 +744,10 @@
     var M = MOODS[moodKey];
     look.mood = moodKey;
     var label = dancing ? "dancing" : singing ? "singing" : moodKey;
-    if (label !== look.label){ look.label = label; $("moodWord").textContent = label; }
+    if (label !== look.label) look.label = label;
+    if (label === "dancing" || label === "singing"){
+      if ($("moodWord").textContent.toLowerCase() !== label) $("moodWord").textContent = label;
+    }
 
     // ---- gaze ---------------------------------------------------------
     if (now() > phys.nextGlance){

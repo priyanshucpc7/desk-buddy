@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 #pragma once
 
-#define DB_VERSION   "1.1.0"
+#define DB_VERSION   "1.1.1"
 
 // Name advertised over mDNS -> http://deskbuddy.local
 #define DB_HOSTNAME  "deskbuddy"
