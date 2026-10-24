@@ -34,7 +34,7 @@ Living.AI — just a love letter to tiny desk robots.
   served straight from the ESP32.
 - Android app renders the same buddy full-screen and streams sensor data back.
 
-| Web UI | Android app |
+| Web UI | Phone face |
 | --- | --- |
 | ![browser](docs/screenshot-web.jpg) | ![phone](docs/screenshot-phone.jpg) |
 

@@ -18,7 +18,7 @@ newline-delimited; WebSocket messages are one object per frame.
 Sent when a client connects, and to the phone right after accept.
 
 ```json
-{"t":"hello","fw":"1.1.0","kind":"web","name":"Mochi","ap":0,
+{"t":"hello","fw":"1.1.1","kind":"web","name":"Mochi","ap":0,
  "apSsid":"DeskBuddy-59CC","apPass":"deskbuddy","staIp":"192.168.1.42",
  "state":{"t":"state","mood":"happy","hap":86,"en":72,"full":64,"bond":137,
           "lvl":2,"age":120,"sleep":0,"pets":12,"feeds":3,"plays":5,
@@ -134,7 +134,7 @@ Any traffic resets the idle timer. Web clients time out after 60 s, phones after
 `/api/status` example:
 
 ```json
-{"ok":true,"fw":"1.1.0","ap":0,"host":"deskbuddy.local","staIp":"192.168.1.42",
+{"ok":true,"fw":"1.1.1","ap":0,"host":"deskbuddy.local","staIp":"192.168.1.42",
  "apIp":"192.168.4.1","apSsid":"DeskBuddy-59CC","apPass":"deskbuddy",
  "web":1,"phone":1,"uptime":120,
  "state":{…},"sensors":{…}}
