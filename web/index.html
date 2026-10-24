@@ -191,6 +191,7 @@
   .act.feed{color:#FFC9A6}
   .act.play{color:#D6C8FF}
   .act.sleep{color:#B7E7FF}
+  .act.sing{color:#FFE39B}
   .act.primary{background:linear-gradient(180deg,rgba(255,212,121,.95),rgba(245,185,76,.92)); color:#221A10; border-color:transparent; box-shadow:0 16px 34px -18px rgba(255,190,90,.9)}
   .act.primary:hover{background:linear-gradient(180deg,#FFDf9a,#F7C25C)}
 
@@ -245,7 +246,7 @@
   @media (max-width:860px){
     .vitals{width:100%; padding:12px 14px 10px}
     .dock{flex-wrap:wrap; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); gap:10px}
-    .actions{flex:1 1 100%; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0}
+    .actions{flex:1 1 100%; display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:0}
     .act{justify-content:center; padding:12px 6px; border-radius:13px}
     .sensor-row{margin-top:8px; padding-top:8px}
     .vitals-head{margin-bottom:8px}
@@ -319,9 +320,13 @@
       <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"/><circle cx="9" cy="9" r="1"/><circle cx="14.5" cy="8" r="1"/><circle cx="15" cy="14" r="1"/><circle cx="8.5" cy="15" r="1"/></svg>
       <span>Feed</span>
     </button>
-    <button class="act play" data-act="play" title="Play (P)">
-      <svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.2 7.5l2.1 2.1M17.7 14.4l2.1 2.1M3 12h3M18 12h3M4.2 16.5l2.1-2.1M17.7 9.6l2.1-2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
-      <span>Play</span>
+    <button class="act play" id="danceBtn" data-act="play" title="Dance (P)">
+      <svg viewBox="0 0 24 24"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
+      <span>Dance</span>
+    </button>
+    <button class="act sing" id="singBtn" title="Sing (G)">
+      <svg viewBox="0 0 24 24"><path d="M4 14c2-3 4-3 6 0s4 3 6 0 4-3 4 0"/><path d="M8 7v3M12 5v4M16 7v3"/></svg>
+      <span>Sing</span>
     </button>
     <button class="act sleep" id="sleepBtn" title="Sleep / wake (S)">
       <svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/></svg>
@@ -348,6 +353,7 @@
     <div class="sect">
       <h4>Desk</h4>
       <div class="row"><span class="hint">Sound effects</span><button class="btn" id="soundBtn">on</button></div>
+      <div class="row"><span class="hint">Voice</span><button class="btn" id="voiceBtn">on</button></div>
       <div class="row"><span class="hint">Phone sensors</span><span class="hint" id="phoneHint">waiting…</span></div>
       <div class="hint">Open the DeskBuddy app on the Android phone, join this same WiFi, then enter
         <span class="kbd" id="hostText">deskbuddy.local</span>. The phone becomes a second face plus the sensor pack.</div>
@@ -363,7 +369,7 @@
 
     <div class="sect">
       <div class="row"><span class="hint">Reset stats, bond and personality</span><button class="btn danger" id="resetBtn">Start over</button></div>
-      <div class="hint" style="margin-top:10px">Firmware 1.0 · <span id="about">esp32-s3</span></div>
+      <div class="hint" style="margin-top:10px">Firmware 1.1 · <span id="about">esp32-s3</span></div>
     </div>
   </div>
 </div>
@@ -393,7 +399,7 @@
   var pointer = { x:0, y:0, has:false };
   var bodyBox = { cx:0, cy:0, rx:0, ry:0 };
   var t0 = performance.now();
-  var soundOn = true, audioCtx = null;
+  var soundOn = true, voiceOn = true, audioCtx = null;
   var forcedMood = (function(){
     var m = location.search.match(/[?&]mood=([a-z]+)/);
     return m ? m[1] : "";
@@ -403,18 +409,23 @@
     return m ? (location.hostname + ":" + m[1]) : location.host;
   })();
 
+  // Face styles are EMO-inspired: a dark glass screen with glowing eyes.
   var MOODS = {
-    happy:    { eye:1.00, pupil:1.00, mouth:"smile",  blush:.55, glow:"#FFB47A", color:"#FFE6CF" },
-    curious:  { eye:1.10, pupil:1.18, mouth:"small",  blush:.30, glow:"#9EE7FF", color:"#FFE9D6" },
-    sleepy:   { eye:0.40, pupil:0.90, mouth:"flat",   blush:.35, glow:"#7FA8FF", color:"#EDEAF8" },
-    sleeping: { eye:0.10, pupil:0.80, mouth:"flat",   blush:.30, glow:"#6F86FF", color:"#E9E8F6" },
-    hungry:   { eye:1.05, pupil:1.05, mouth:"open",   blush:.40, glow:"#FFC078", color:"#FFE3C6" },
-    annoyed:  { eye:0.72, pupil:0.95, mouth:"frown",  blush:.25, glow:"#FF8F6B", color:"#FFDCC6" },
-    dizzy:    { eye:1.00, pupil:0.00, mouth:"wave",   blush:.45, glow:"#C9A2FF", color:"#FFE6CF" },
-    love:     { eye:1.05, pupil:1.10, mouth:"smile",  blush:.95, glow:"#FF9BB8", color:"#FFE1D2" },
-    startled: { eye:1.30, pupil:0.62, mouth:"o",      blush:.30, glow:"#FFD479", color:"#FFEBD8" },
-    bored:    { eye:0.60, pupil:0.85, mouth:"flat",   blush:.25, glow:"#9FB0C9", color:"#F7E3D2" },
-    excited:  { eye:1.15, pupil:1.25, mouth:"open",   blush:.70, glow:"#FF9BD2", color:"#FFE8D2" }
+    happy:    { face:"round",  eye:1.00, mouth:"smile", blush:.34, glow:"#79E6FF", shell:"#EEF3F9" },
+    curious:  { face:"wide",   eye:1.10, mouth:"small", blush:.22, glow:"#8FEDFF", shell:"#F3F7FB" },
+    sleepy:   { face:"sleepy", eye:0.42, mouth:"flat",  blush:.26, glow:"#9BA9FF", shell:"#E9EDF6" },
+    sleeping: { face:"closed", eye:0.00, mouth:"flat",  blush:.18, glow:"#7E8BFF", shell:"#E4E8F2" },
+    hungry:   { face:"wide",   eye:1.05, mouth:"open",  blush:.32, glow:"#FFC36B", shell:"#F3EFE7" },
+    annoyed:  { face:"angry",  eye:0.96, mouth:"frown", blush:.20, glow:"#FF7A6B", shell:"#F2E9E4" },
+    dizzy:    { face:"dizzy",  eye:1.00, mouth:"wave",  blush:.26, glow:"#C9A2FF", shell:"#EFEAF7" },
+    love:     { face:"heart",  eye:1.04, mouth:"smile", blush:.88, glow:"#FF8FB7", shell:"#F8EDF2" },
+    startled: { face:"wide",   eye:1.26, mouth:"o",     blush:.22, glow:"#FFE08A", shell:"#F5F2E8" },
+    bored:    { face:"half",   eye:0.62, mouth:"flat",  blush:.16, glow:"#9FB6CF", shell:"#EDF1F5" },
+    excited:  { face:"star",   eye:1.12, mouth:"open",  blush:.60, glow:"#FF9BE0", shell:"#F6EDF6" },
+    sad:      { face:"sad",    eye:0.90, mouth:"frown", blush:.22, glow:"#7FA8FF", shell:"#E8EDF6" },
+    shy:      { face:"happy",  eye:0.88, mouth:"small", blush:.92, glow:"#FFB3C9", shell:"#F8EEF2" },
+    singing:  { face:"happy",  eye:0.96, mouth:"sing",  blush:.46, glow:"#A7E4FF", shell:"#F0F5FA" },
+    dancing:  { face:"happy",  eye:1.00, mouth:"smile", blush:.58, glow:"#FFAFE6", shell:"#F5EDF4" }
   };
 
   function resize(){
@@ -554,17 +565,20 @@
         look.tempMood = "love"; look.tempUntil = now + 1400;
         look.sq = 1.05; burst("heart", 2 + (v > .9 ? 1 : 0));
         chirp(660 + Math.random()*120, .07, .04); tick("petted");
+        say(pick(["That tickles!", "Aww, I love you too.", "More pets, please!"]));
         break;
       case "poke":
         look.tempMood = "startled"; look.tempUntil = now + 850;
         look.sq = 0.90; look.ox = (Math.random()-.5) * 14;
         look.kick = 1.0; look.forceBlink = true;
         burst("spark", 4); chirp(420, .06, .05); tick("booped");
+        say(pick(["Hey!", "Boop!", "That was rude."]));
         break;
       case "feed":
         look.tempMood = "happy"; look.tempUntil = now + 1800;
         burst("crumb", 10); chirp(520,.09,.05); setTimeout(function(){chirp(700,.09,.05);}, 90);
         tick("snack time"); toast("nom nom");
+        say(pick(["Yum yum!", "Thank you!", "More snacks, please!"]));
         break;
       case "play":
         look.tempMood = "excited"; look.tempUntil = now + 2600;
@@ -573,22 +587,27 @@
         setTimeout(function(){chirp(740,.08,.05);},80);
         setTimeout(function(){chirp(880,.10,.05);},160);
         tick("zoomies");
+        startDance();
         break;
       case "sleep":
         look.tempMood = "sleeping"; look.tempUntil = now + 4000;
         burst("zzz", 1); chirp(300,.14,.04); tick("asleep");
+        say("Good night...");
         break;
       case "wake":
         look.tempMood = "sleepy"; look.tempUntil = now + 2500;
         chirp(500,.1,.05); tick("woke up");
+        say("I'm awake!");
         break;
       case "shake":
         look.tempMood = "dizzy"; look.tempUntil = now + 2200;
         burst("dizzy", 1); look.ox = 10; tick("shaken");
+        say("Whoa, dizzy!");
         break;
       case "noise":
         look.tempMood = "startled"; look.tempUntil = now + 1100;
         burst("spark", 5); tick("heard something");
+        say("What was that?");
         break;
       case "level":
         look.tempMood = "excited"; look.tempUntil = now + 3200;
@@ -596,6 +615,7 @@
         chirp(660,.1,.06); setTimeout(function(){chirp(880,.1,.06);},120);
         setTimeout(function(){chirp(1100,.16,.06);},240);
         tick("level up"); toast("level up!");
+        say("Level up!");
         break;
       case "name": tick("renamed"); toast("hello, " + state.name); break;
       case "dark": tick("lights off"); break;
@@ -668,38 +688,29 @@
   // -------------------------------------------------------------------- draw
   function now(){ return performance.now(); }
 
-  // physical state: blinking, glancing, head tilt, antenna spring, ambience
+  // physical state: blinking, glancing, head tilt, ambience
   var phys = {
     tilt:0, tiltV:0, ant:0, antV:0,
     blinkFrom:-9999, blinkTo:-9999, nextBlink:0,
     glanceX:0, glanceY:0, nextGlance:0,
     yawnUntil:0, nextYawn:0, lastFrame:0
   };
-  var DUST = [], FUZZ = [], GRAIN = null, GRAIN_PAT = null;
+  var DUST = [], GRAIN = null, GRAIN_PAT = null;
+
+  var robot = {
+    danceUntil:0, singUntil:0, talkUntil:0,
+    musicTimer:0, singTimer:0, beat:0
+  };
 
   function ease(x){ x = Math.max(0, Math.min(1, x)); return x*x*(3-2*x); }
 
   function buildLook(){
-    FUZZ = [];
-    var n = 180;
-    for (var i = 0; i < n; i++){
-      var a = -Math.PI*0.96 + (i/(n-1))*Math.PI*1.92;   // around the top and sides
-      var nx = Math.cos(a)/bodyBox.rx, ny = Math.sin(a)/bodyBox.ry;
-      var L = Math.sqrt(nx*nx + ny*ny) || 1;
-      FUZZ.push({
-        x: Math.cos(a)*bodyBox.rx, y: Math.sin(a)*bodyBox.ry,
-        nx: nx/L, ny: ny/L,
-        len: 1.2 + Math.random()*3.4,
-        a: (0.03 + Math.random()*0.10) * (Math.sin(a) < 0 ? 1 : .55)
-      });
-    }
     DUST = [];
     for (var d = 0; d < 26; d++){
       DUST.push({ x: Math.random()*W, y: Math.random()*H, r: .5 + Math.random()*1.5,
                   sp: 1.5 + Math.random()*5, ph: Math.random()*6.283,
                   a: .04 + Math.random()*.10 });
     }
-    // felt grain, generated once
     var gc = document.createElement("canvas");
     gc.width = gc.height = 110;
     var g = gc.getContext("2d");
@@ -707,7 +718,7 @@
     for (var p = 0; p < img.data.length; p += 4){
       var v = 110 + Math.random()*90;
       img.data[p] = img.data[p+1] = img.data[p+2] = v;
-      img.data[p+3] = 16 + Math.random()*22;
+      img.data[p+3] = 10 + Math.random()*18;
     }
     g.putImageData(img, 0, 0);
     GRAIN = gc;
@@ -720,24 +731,32 @@
     var dt = phys.lastFrame ? Math.min(.05, (now() - phys.lastFrame)/1000) : .016;
     phys.lastFrame = now();
 
+    var dancing = now() < robot.danceUntil;
+    var singing = now() < robot.singUntil;
+    var talking = now() < robot.talkUntil;
+
     var moodKey = (look.tempUntil > now() && look.tempMood) ? look.tempMood
                   : (state.sleep ? "sleeping" : state.mood);
+    if (dancing) moodKey = "dancing";
+    else if (singing) moodKey = "singing";
     if (!MOODS[moodKey]) moodKey = "happy";
     var M = MOODS[moodKey];
     look.mood = moodKey;
+    var label = dancing ? "dancing" : singing ? "singing" : moodKey;
+    if (label !== look.label){ look.label = label; $("moodWord").textContent = label; }
 
-    // ---- gaze: glances, pointer follow, idle wander -------------------
+    // ---- gaze ---------------------------------------------------------
     if (now() > phys.nextGlance){
-      phys.glanceX = (Math.random()*2 - 1)*.55;
-      phys.glanceY = (Math.random()*2 - 1)*.32;
-      phys.nextGlance = now() + 650 + Math.random()*2600;
+      phys.glanceX = (Math.random()*2 - 1)*.5;
+      phys.glanceY = (Math.random()*2 - 1)*.3;
+      phys.nextGlance = now() + 700 + Math.random()*2600;
     }
-    var wanderX = Math.sin(t*.4)*.16 + Math.sin(t*.93 + 1.7)*.09 + phys.glanceX*.6;
-    var wanderY = Math.cos(t*.31)*.10 + Math.sin(t*.67)*.07 + phys.glanceY*.5;
+    var wanderX = Math.sin(t*.4)*.14 + Math.sin(t*.93 + 1.7)*.08 + phys.glanceX*.6;
+    var wanderY = Math.cos(t*.31)*.09 + Math.sin(t*.67)*.06 + phys.glanceY*.5;
     var focusX = wanderX, focusY = wanderY;
     if (pointer.has){
-      focusX = clamp((pointer.x - bodyBox.cx)/(bodyBox.rx*1.7), -1, 1)*.8 + wanderX*.2;
-      focusY = clamp((pointer.y - bodyBox.cy)/(bodyBox.ry*1.7), -1, 1)*.8 + wanderY*.2;
+      focusX = clamp((pointer.x - bodyBox.cx)/(bodyBox.rx*1.8), -1, 1)*.8 + wanderX*.2;
+      focusY = clamp((pointer.y - bodyBox.cy)/(bodyBox.ry*1.8), -1, 1)*.8 + wanderY*.2;
     }
     var follow = 1 - Math.pow(0.0001, dt);
     look.eyeX += (focusX - look.eyeX)*follow;
@@ -747,9 +766,9 @@
     if (look.forceBlink){ phys.nextBlink = now(); look.forceBlink = false; }
     if (now() > phys.nextBlink && moodKey !== "sleeping"){
       phys.blinkFrom = now();
-      phys.blinkTo = now() + 120 + Math.random()*40;
-      phys.nextBlink = now() + 2300 + Math.random()*3800;
-      if (Math.random() < .25) phys.nextBlink = now() + 260;   // double blink
+      phys.blinkTo = now() + 110 + Math.random()*40;
+      phys.nextBlink = now() + 2200 + Math.random()*3800;
+      if (Math.random() < .25) phys.nextBlink = now() + 240;
     }
     var blink = 0;
     if (now() < phys.blinkTo){
@@ -759,43 +778,42 @@
 
     // ---- idle yawn ----------------------------------------------------
     if (now() > phys.nextYawn){
-      phys.nextYawn = now() + 50000 + Math.random()*110000;
-      if (moodKey === "sleepy" || moodKey === "bored" || Math.random() < .22)
-        phys.yawnUntil = now() + 1150;
+      phys.nextYawn = now() + 55000 + Math.random()*110000;
+      if (moodKey === "sleepy" || moodKey === "bored" || Math.random() < .18)
+        phys.yawnUntil = now() + 1100;
     }
     var yawnK = 0;
     if (now() < phys.yawnUntil){
-      var yp = (now() - (phys.yawnUntil - 1150))/1150;
+      var yp = (now() - (phys.yawnUntil - 1100))/1100;
       yawnK = Math.sin(Math.min(1, Math.max(0, yp))*Math.PI);
     }
 
-    // ---- head tilt + antenna spring ----------------------------------
+    // ---- tilt ---------------------------------------------------------
     var targetTilt = pointer.has
-        ? clamp((pointer.x - bodyBox.cx)/(W*1.4), -1, 1)*.045
-        : Math.sin(t*.29)*.013;
+        ? clamp((pointer.x - bodyBox.cx)/(W*1.4), -1, 1)*.05
+        : Math.sin(t*.29)*.014;
     phys.tiltV += (targetTilt - phys.tilt)*.020;
     phys.tiltV *= .88;
     phys.tilt += phys.tiltV;
 
-    if (look.kick){ phys.antV += look.kick*.028; look.kick = 0; }
-    var targetAnt = -phys.tilt*2.4 + Math.sin(t*.9)*.05 + phys.antV*.2;
-    phys.antV += (targetAnt - phys.ant)*.014;
-    phys.antV *= .93;
-    phys.ant += phys.antV;
-
-    // ---- squash, breathing -------------------------------------------
+    // ---- squash / bounce ---------------------------------------------
     look.sq += (1 - look.sq)*Math.min(1, dt*9);
     look.ox *= .86;
-    var breath = 1 + Math.sin(t*1.35)*.008 + Math.sin(t*.41)*.004;
     var bounce = (moodKey === "excited") ? Math.abs(Math.sin(t*5.0))*.035 : 0;
-    var sc = (1 + (look.sq - 1)*.55)*breath;
-    var sx = 1 + (look.sq - 1)*.85;
+    if (dancing) bounce += Math.abs(Math.sin(t*6.0))*.018;
+    var idleBob = Math.sin(t*1.22)*1.6 + Math.sin(t*.41)*.7;
+    var sc = 1 + (look.sq - 1)*.55;
+    var sx = 1 + (look.sq - 1)*.75;
     var sy = 2 - look.sq;
 
     var openAmt = M.eye*(1 - blink);
     if (moodKey === "sleeping") openAmt = 0;
     if (yawnK > 0) openAmt *= 1 - yawnK*.85;
-    if (moodKey === "love") openAmt *= .82;
+    if (moodKey === "love") openAmt *= .9;
+
+    var dim = 0;
+    if (state.sleep) dim = .28;
+    else if (sensors.lux >= 0 && sensors.lux < 12) dim = .18;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -811,441 +829,614 @@
     }
     ctx.globalAlpha = 1;
 
-    // ---- ambient light + grounded shadow ------------------------------
-    var glowR = Math.max(bodyBox.rx*3.0, 260);
-    var gg = ctx.createRadialGradient(bodyBox.cx, bodyBox.cy - 14, 8, bodyBox.cx, bodyBox.cy, glowR);
-    gg.addColorStop(0, hexA(M.glow, .22));
-    gg.addColorStop(.42, hexA(M.glow, .075));
+    // ---- ambient glow + grounded shadow -------------------------------
+    var glowR = Math.max(bodyBox.rx*3.1, 280);
+    var gg = ctx.createRadialGradient(bodyBox.cx, bodyBox.cy, 8, bodyBox.cx, bodyBox.cy, glowR);
+    gg.addColorStop(0, hexA(M.glow, .18));
+    gg.addColorStop(.42, hexA(M.glow, .06));
     gg.addColorStop(1, hexA(M.glow, 0));
     ctx.fillStyle = gg;
     ctx.fillRect(bodyBox.cx - glowR, bodyBox.cy - glowR, glowR*2, glowR*2);
 
-    var shadowY = bodyBox.cy + bodyBox.ry + 17 + bounce*40;
+    var hw = bodyBox.rx*1.62, hh = bodyBox.ry*1.50;
+    var footH = hh*.16;
+    var shadowY = bodyBox.cy + hh*.5 + footH*.7 + 8 + bounce*40 + idleBob*.35;
     ctx.save();
     ctx.translate(bodyBox.cx, shadowY);
-    ctx.scale(1, .21);
-    var s1 = ctx.createRadialGradient(0, 0, 2, 0, 0, bodyBox.rx*.95*sc);
-    s1.addColorStop(0, "rgba(0,0,0,.55)");
-    s1.addColorStop(.45, "rgba(0,0,0,.30)");
+    ctx.scale(1, .2);
+    var s1 = ctx.createRadialGradient(0, 0, 2, 0, 0, hw*.48*sc);
+    s1.addColorStop(0, "rgba(0,0,0,.5)");
+    s1.addColorStop(.5, "rgba(0,0,0,.24)");
     s1.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = s1;
-    ctx.beginPath(); ctx.arc(0, 0, bodyBox.rx*.95*sc, 0, 6.283); ctx.fill();
-    var s2 = ctx.createRadialGradient(0, 0, 2, 0, 0, bodyBox.rx*1.5*sc);
-    s2.addColorStop(0, "rgba(0,0,0,.20)");
-    s2.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = s2;
-    ctx.beginPath(); ctx.arc(0, 0, bodyBox.rx*1.5*sc, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, hw*.48*sc, 0, 6.283); ctx.fill();
     ctx.restore();
 
-    // ---- body ---------------------------------------------------------
+    // ---- robot --------------------------------------------------------
     ctx.save();
-    ctx.translate(bodyBox.cx + look.ox + Math.sin(phys.tilt)*8, bodyBox.cy + bounce*40);
-    ctx.rotate(phys.tilt);
+    ctx.translate(bodyBox.cx + look.ox, bodyBox.cy + idleBob + bounce*40);
+    ctx.rotate(phys.tilt + (dancing ? Math.sin(t*8.6)*.06 : 0));
     ctx.scale(sc*sx, sc*sy);
-    var rx = bodyBox.rx, ry = bodyBox.ry;
 
-    // feet peeking out from underneath
-    var footG = ctx.createLinearGradient(0, ry*.88, 0, ry*1.05);
-    footG.addColorStop(0, shade(M.color, -16));
-    footG.addColorStop(.55, shade(M.color, -30));
-    footG.addColorStop(1, shade(M.color, -44));
-    for (var ft = -1; ft <= 1; ft += 2){
-      ctx.save();
-      ctx.translate(ft*rx*.31, ry*.965);
-      ctx.rotate(ft*.07);
-      ctx.fillStyle = footG;
-      ctx.beginPath(); ctx.ellipse(0, 0, rx*.2, ry*.075, 0, 0, 6.283); ctx.fill();
-      ctx.globalAlpha = .35;
-      ctx.strokeStyle = "rgba(110,66,44,.5)";
-      ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(0, -ry*.012, rx*.185, ry*.055, 0, 3.4, 6.0); ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.restore();
-    }
-
-    // spring-loaded antenna
-    var baseY = -ry*.935;
-    var bend = phys.ant;
-    var tipX = Math.sin(bend)*ry*.36 + Math.sin(t*1.7)*rx*.005;
-    var tipY = baseY - Math.cos(bend)*ry*.36;
-    ctx.save();
-    ctx.strokeStyle = shade(M.color, -26);
-    ctx.lineWidth = Math.max(2.2, rx*.021);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(0, baseY);
-    ctx.quadraticCurveTo(Math.sin(bend*.5)*ry*.02, baseY - ry*.2, tipX, tipY);
-    ctx.stroke();
-    var bulb = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, rx*.14);
-    bulb.addColorStop(0, hexA(M.glow, .9));
-    bulb.addColorStop(.35, hexA(M.glow, .35));
-    bulb.addColorStop(1, hexA(M.glow, 0));
-    ctx.globalAlpha = .7 + .3*Math.sin(t*2.2);
-    ctx.fillStyle = bulb;
-    ctx.beginPath(); ctx.arc(tipX, tipY, rx*.14, 0, 6.283); ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = M.glow;
-    ctx.beginPath(); ctx.arc(tipX, tipY, Math.max(2.2, rx*.042), 0, 6.283); ctx.fill();
-    var gloss = ctx.createRadialGradient(tipX - rx*.012, tipY - rx*.014, 0,
-                                         tipX - rx*.012, tipY - rx*.014, rx*.018);
-    gloss.addColorStop(0, "rgba(255,255,255,.9)");
-    gloss.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = gloss;
-    ctx.beginPath(); ctx.arc(tipX - rx*.012, tipY - rx*.014, rx*.018, 0, 6.283); ctx.fill();
-    ctx.restore();
-
-    // base colour
-    bodyPath(ctx, rx, ry);
-    var bg = ctx.createLinearGradient(0, -ry, 0, ry*1.04);
-    bg.addColorStop(0, shade(M.color, 7));
-    bg.addColorStop(.30, shade(M.color, 4));
-    bg.addColorStop(.72, shade(M.color, -7));
-    bg.addColorStop(1, shade(M.color, -24));
-    ctx.fillStyle = bg;
-    ctx.fill();
-
-    ctx.save();
-    ctx.clip();
-
-    // key light, upper left
-    var key = ctx.createRadialGradient(-rx*.42, -ry*.55, rx*.05, -rx*.22, -ry*.30, rx*1.75);
-    key.addColorStop(0, "rgba(255,255,255,.40)");
-    key.addColorStop(.38, "rgba(255,255,255,.09)");
-    key.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = key;
-    ctx.fillRect(-rx*1.3, -ry*1.3, rx*2.6, ry*2.6);
-
-    // warm bounce from the desk
-    var bnc = ctx.createLinearGradient(0, ry*.15, 0, ry*1.02);
-    bnc.addColorStop(0, hexA(M.glow, 0));
-    bnc.addColorStop(1, hexA(M.glow, .30));
-    ctx.fillStyle = bnc;
-    ctx.fillRect(-rx, ry*.15, rx*2, ry*.9);
-
-    // contact occlusion
-    var ao = ctx.createRadialGradient(0, ry*1.02, rx*.05, 0, ry*.98, rx*.95);
-    ao.addColorStop(0, "rgba(96,52,38,.28)");
-    ao.addColorStop(.55, "rgba(96,52,38,.10)");
-    ao.addColorStop(1, "rgba(96,52,38,0)");
-    ctx.fillStyle = ao;
-    ctx.fillRect(-rx, -ry, rx*2, ry*2);
-
-    // felt grain
-    if (GRAIN_PAT){
-      var pat = GRAIN_PAT;
-      if (pat){
-        ctx.globalAlpha = .6;
-        ctx.fillStyle = pat;
-        ctx.fillRect(-rx*1.1, -ry*1.1, rx*2.2, ry*2.2);
-        ctx.globalAlpha = 1;
-      }
-    }
-
-    // fuzzy silhouette
-    ctx.lineCap = "round";
-    for (var f = 0; f < FUZZ.length; f++){
-      var q = FUZZ[f];
-      ctx.globalAlpha = q.a;
-      ctx.strokeStyle = q.ny < 0 ? "#FFF6EA" : "#C98F6E";
-      ctx.lineWidth = .9;
-      ctx.beginPath();
-      ctx.moveTo(q.x, q.y);
-      ctx.lineTo(q.x + q.nx*q.len, q.y + q.ny*q.len);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    // fresnel rim: light wrapping around the silhouette
-    var rim = ctx.createLinearGradient(-rx, -ry, rx*.6, ry);
-    rim.addColorStop(0, "rgba(255,255,255,.55)");
-    rim.addColorStop(.45, "rgba(255,255,255,.08)");
-    rim.addColorStop(1, hexA(M.glow, .22));
-    ctx.strokeStyle = rim;
-    ctx.lineWidth = rx*.045;
-    ctx.shadowColor = hexA(M.glow, .5);
-    ctx.shadowBlur = rx*.06;
-    bodyPath(ctx, rx*.985, ry*.985);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    drawFeet(ctx, hw, hh, footH, M, t, dancing);
+    drawHead(ctx, hw, hh, M, moodKey, t, openAmt, dim, dancing, singing, talking, yawnK);
 
     ctx.restore();
 
-    // contour
-    bodyPath(ctx, rx, ry);
-    ctx.strokeStyle = "rgba(88,52,38,.14)";
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-
-    // cheeks
-    if (M.blush > .02){
-      ctx.save();
-      ctx.globalAlpha = M.blush*(.55 + .45*Math.sin(t*2.0));
-      for (var s = -1; s <= 1; s += 2){
-        ctx.save();
-        ctx.translate(s*rx*.575, ry*.2);
-        var cg = ctx.createRadialGradient(0, 0, 1, 0, 0, rx*.26);
-        cg.addColorStop(0, "rgba(255,118,126,.85)");
-        cg.addColorStop(.5, "rgba(255,118,126,.38)");
-        cg.addColorStop(1, "rgba(255,118,126,0)");
-        ctx.fillStyle = cg;
-        ctx.beginPath(); ctx.ellipse(0, 0, rx*.26, ry*.17, s*.17, 0, 6.283); ctx.fill();
-        ctx.restore();
-      }
-      ctx.restore();
-    }
-
-    // eyes
-    var eyeY = -ry*.10, eyeDX = rx*.355, er = rx*.215;
-    for (var s2 = -1; s2 <= 1; s2 += 2)
-      drawEye(ctx, s2*eyeDX, eyeY, er, openAmt, M, moodKey, t, s2);
-
-    drawBrows(ctx, moodKey, rx, ry, eyeY, eyeDX, er, t);
-
-    // mouth
-    drawMouth(ctx, 0, ry*.33, rx, ry, yawnK > 0 ? "open" : M.mouth, t, yawnK);
-
-    ctx.restore();
-
+    if (dancing && Math.random() < .05) burst("note", 1);
     drawFx(t);
     if (moodKey === "sleeping") drawZzz(t);
   }
 
-  // ------------------------------------------------------------------ face
-  function drawEye(c, ex, ey, er, open, M, moodKey, t, side){
+  // ------------------------------------------------------------------ robot
+  function rr(c, x, y, w, h, r){
+    r = Math.min(r, w*.5, h*.5);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  function drawFeet(c, hw, hh, footH, M, t, dancing){
+    var fw = hw*.17;
+    for (var side = -1; side <= 1; side += 2){
+      var tap = 0;
+      if (dancing) tap = Math.max(0, Math.sin(t*13 + (side > 0 ? Math.PI : 0)))*footH*.28;
+      var fx = side*hw*.19, fy = hh*.5 - footH*.30 - tap;
+      rr(c, fx - fw*.5, fy, fw, footH, fw*.42);
+      var fg = c.createLinearGradient(0, fy, 0, fy + footH);
+      fg.addColorStop(0, shade(M.shell, -6));
+      fg.addColorStop(1, shade(M.shell, -26));
+      c.fillStyle = fg;
+      c.fill();
+      c.strokeStyle = "rgba(84,100,120,.4)";
+      c.lineWidth = 1.2;
+      c.stroke();
+      c.save();
+      rr(c, fx - fw*.5, fy, fw, footH, fw*.42);
+      c.clip();
+      c.fillStyle = "rgba(255,255,255,.5)";
+      c.fillRect(fx - fw*.5, fy + 2, fw*.28, footH*.7);
+      c.restore();
+    }
+  }
+
+  function drawHead(c, hw, hh, M, moodKey, t, openAmt, dim, dancing, singing, talking, yawnK){
+    var face = M.face;
+    if (dancing || singing) face = "happy";
+    var pad = hw*.048;
+    var sx = -hw*.5 + pad, sy = -hh*.5 + pad;
+    var sw = hw - pad*2, sh = hh - pad*2;
+    var srad = hw*.205;
+    var ey = hh*.005, ex = hw*.16;
+    var ew = hw*.228, eh = hh*.255;
+    var glow = M.glow;
+
+    // shell
+    rr(c, -hw*.5, -hh*.5, hw, hh, hw*.285);
+    var shellG = c.createLinearGradient(0, -hh*.5, 0, hh*.5);
+    shellG.addColorStop(0, "#FFFFFF");
+    shellG.addColorStop(.26, M.shell);
+    shellG.addColorStop(.72, shade(M.shell, -11));
+    shellG.addColorStop(1, shade(M.shell, -28));
+    c.fillStyle = shellG;
+    c.fill();
+    c.strokeStyle = "rgba(78,92,112,.34)";
+    c.lineWidth = 1.6;
+    c.stroke();
+
+    // shell bevel: a soft highlight along the top and a seam near the sides
     c.save();
-    c.translate(ex, ey);
+    rr(c, -hw*.5, -hh*.5, hw, hh, hw*.285);
+    c.clip();
+    c.strokeStyle = "rgba(255,255,255,.75)";
+    c.lineWidth = 2.2;
+    rr(c, -hw*.5 + 2, -hh*.5 + 2, hw - 4, hh - 4, hw*.275);
+    c.stroke();
+    c.strokeStyle = "rgba(80,95,115,.12)";
+    c.lineWidth = 1;
+    for (var side = -1; side <= 1; side += 2){
+      c.beginPath();
+      c.moveTo(side*hw*.455, -hh*.24);
+      c.quadraticCurveTo(side*hw*.49, 0, side*hw*.455, hh*.24);
+      c.stroke();
+    }
+    c.restore();
 
-    var socket = c.createRadialGradient(0, 0, er*.4, 0, 0, er*1.55);
-    socket.addColorStop(0, "rgba(110,62,46,.10)");
-    socket.addColorStop(1, "rgba(110,62,46,0)");
-    c.fillStyle = socket;
-    c.beginPath(); c.arc(0, 0, er*1.55, 0, 6.283); c.fill();
+    // screen bezel
+    rr(c, sx - 4, sy - 4, sw + 8, sh + 8, srad + 3);
+    c.fillStyle = "#161C26";
+    c.fill();
 
-    if (moodKey === "dizzy"){
-      c.strokeStyle = "#2C2537";
-      c.lineWidth = Math.max(1.8, er*.09);
+    // screen glass
+    rr(c, sx, sy, sw, sh, srad);
+    var sg = c.createLinearGradient(0, sy, 0, sy + sh);
+    sg.addColorStop(0, "#0B121B");
+    sg.addColorStop(.45, "#070B12");
+    sg.addColorStop(1, "#04060A");
+    c.fillStyle = sg;
+    c.fill();
+    c.strokeStyle = "rgba(140,175,205,.12)";
+    c.lineWidth = 1;
+    c.stroke();
+
+    c.save();
+    rr(c, sx, sy, sw, sh, srad);
+    c.clip();
+
+    // the screen is lit from inside by the mood colour
+    var bg = c.createRadialGradient(0, sy + sh*.92, 6, 0, sy + sh*.92, sw*.8);
+    bg.addColorStop(0, hexA(glow, .16));
+    bg.addColorStop(.5, hexA(glow, .05));
+    bg.addColorStop(1, hexA(glow, 0));
+    c.fillStyle = bg;
+    c.fillRect(sx, sy, sw, sh);
+
+    // slight vertical gradient so the glass feels curved
+    var vg = c.createLinearGradient(0, sy, 0, sy + sh);
+    vg.addColorStop(0, "rgba(255,255,255,.035)");
+    vg.addColorStop(.25, "rgba(255,255,255,0)");
+    vg.addColorStop(1, "rgba(0,0,0,.22)");
+    c.fillStyle = vg;
+    c.fillRect(sx, sy, sw, sh);
+
+    // blush LEDs
+    if (M.blush > .45){
+      c.save();
+      c.globalCompositeOperation = "screen";
+      c.globalAlpha = M.blush*(.30 + .25*Math.sin(t*2.0));
+      for (var bs = -1; bs <= 1; bs += 2){
+        var bx = bs*hw*.305, by = hh*.19;
+        var bg2 = c.createRadialGradient(bx, by, 1, bx, by, hw*.07);
+        bg2.addColorStop(0, "rgba(255,126,160,.75)");
+        bg2.addColorStop(.55, "rgba(255,110,150,.22)");
+        bg2.addColorStop(1, "rgba(255,110,150,0)");
+        c.fillStyle = bg2;
+        c.beginPath(); c.ellipse(bx, by, hw*.07, hh*.05, 0, 0, 6.283); c.fill();
+      }
+      c.restore();
+    }
+
+    // eyes
+    for (var side = -1; side <= 1; side += 2)
+      drawRobotEye(c, side*ex, ey, ew, eh, openAmt, face, M, t, side, look.eyeX, look.eyeY);
+
+    drawRobotBrows(c, face, hw, hh, ex, ey, ew, eh, M, t);
+
+    // mouth
+    var mouthStyle = yawnK > .05 ? "open" : M.mouth;
+    if (singing || talking) mouthStyle = "sing";
+    drawRobotMouth(c, 0, hh*.24, hw*.14, hh*.10, mouthStyle, M, t, yawnK);
+
+    // screen scanlines
+    c.fillStyle = "rgba(0,0,0,.032)";
+    for (var yy = sy; yy < sy + sh; yy += 3) c.fillRect(sx, yy, sw, 1);
+
+    // faint scan sweep
+    var sweep = (t*.06) % 1;
+    c.fillStyle = hexA(glow, .035);
+    c.fillRect(sx, sy + sweep*sh, sw, sh*.08);
+
+    // glass reflection
+    c.save();
+    c.beginPath();
+    c.moveTo(sx, sy + sh*.16);
+    c.lineTo(sx + sw*.46, sy);
+    c.lineTo(sx + sw*.72, sy);
+    c.lineTo(sx, sy + sh*.5);
+    c.closePath();
+    var glare = c.createLinearGradient(sx, sy, sx + sw*.7, sy + sh*.4);
+    glare.addColorStop(0, "rgba(255,255,255,.035)");
+    glare.addColorStop(.7, "rgba(255,255,255,.012)");
+    glare.addColorStop(1, "rgba(255,255,255,0)");
+    c.fillStyle = glare;
+    c.fill();
+    c.restore();
+
+    // glass edge highlight
+    c.strokeStyle = "rgba(255,255,255,.07)";
+    c.lineWidth = 2;
+    rr(c, sx + 1, sy + 1, sw - 2, sh - 2, srad);
+    c.stroke();
+
+    // vignette
+    var vg2 = c.createRadialGradient(0, 0, sw*.2, 0, 0, sw*.78);
+    vg2.addColorStop(0, "rgba(0,0,0,0)");
+    vg2.addColorStop(1, "rgba(0,0,0,.45)");
+    c.fillStyle = vg2;
+    c.fillRect(sx, sy, sw, sh);
+
+    if (dim > 0){
+      c.fillStyle = "rgba(0,0,0," + dim + ")";
+      c.fillRect(sx, sy, sw, sh);
+    }
+
+    c.restore();
+
+    // top button / status LED
+    rr(c, -hw*.05, -hh*.5 - hw*.028, hw*.10, hw*.05, hw*.02);
+    var nub = c.createLinearGradient(0, -hh*.5 - hw*.028, 0, -hh*.5 + hw*.022);
+    nub.addColorStop(0, "#FFFFFF");
+    nub.addColorStop(1, shade(M.shell, -18));
+    c.fillStyle = nub;
+    c.fill();
+    c.strokeStyle = "rgba(84,100,120,.35)";
+    c.lineWidth = 1;
+    c.stroke();
+
+    var ledY = -hh*.5 - hw*.010;
+    var halo = c.createRadialGradient(0, ledY, 0, 0, ledY, hw*.075);
+    halo.addColorStop(0, hexA(glow, .55));
+    halo.addColorStop(.4, hexA(glow, .16));
+    halo.addColorStop(1, hexA(glow, 0));
+    c.fillStyle = halo;
+    c.beginPath(); c.arc(0, ledY, hw*.075, 0, 6.283); c.fill();
+    c.fillStyle = glow;
+    c.beginPath(); c.arc(0, ledY, hw*.017, 0, 6.283); c.fill();
+  }
+
+  function drawRobotEye(c, ex, ey, ew, eh, open, face, M, t, side, lookX, lookY){
+    var glow = M.glow;
+    c.save();
+    c.translate(ex + lookX*ew*.05, ey + lookY*eh*.05);
+
+    if (open < .07 || face === "closed"){
+      c.strokeStyle = glow;
+      c.lineWidth = Math.max(2.4, eh*.10);
       c.lineCap = "round";
       c.beginPath();
-      for (var i = 0; i < 58; i++){
-        var ang = i*.42 + t*5.2*side;
-        var rad = er*.1*(i/7);
+      c.moveTo(-ew*.42, 0);
+      c.quadraticCurveTo(0, eh*.06, ew*.42, 0);
+      c.stroke();
+      c.strokeStyle = "rgba(255,255,255,.5)";
+      c.lineWidth = Math.max(1, eh*.03);
+      c.stroke();
+      c.restore();
+      return;
+    }
+
+    // soft bloom behind every eye
+    var pulse = .92 + .08*Math.sin(t*2.4 + ex*.01);
+    var halo = c.createRadialGradient(0, 0, 2, 0, 0, ew*1.35);
+    halo.addColorStop(0, hexA(glow, .26*pulse));
+    halo.addColorStop(.55, hexA(glow, .08*pulse));
+    halo.addColorStop(1, hexA(glow, 0));
+    c.fillStyle = halo;
+    c.beginPath(); c.arc(0, 0, ew*1.35, 0, 6.283); c.fill();
+
+    if (face === "heart"){
+      c.save();
+      c.shadowColor = hexA(glow, .8);
+      c.shadowBlur = 18;
+      heart(c, 0, 0, ew*.98, glow);
+      c.restore();
+      heart(c, 0, 0, ew*.62, "#FFEAF2");
+      c.globalAlpha = .5;
+      heart(c, 0, 0, ew*.70, glow);
+      c.globalAlpha = 1;
+      c.restore();
+      return;
+    }
+    if (face === "star"){
+      c.save();
+      c.shadowColor = hexA(glow, .8);
+      c.shadowBlur = 16;
+      c.fillStyle = glow;
+      star(c, ew*.55);
+      c.fillStyle = "#FFFFFF";
+      star(c, ew*.28);
+      c.restore();
+      c.restore();
+      return;
+    }
+    if (face === "dizzy"){
+      c.strokeStyle = glow;
+      c.lineWidth = Math.max(1.8, ew*.06);
+      c.lineCap = "round";
+      c.beginPath();
+      for (var i = 0; i < 60; i++){
+        var ang = i*.42 + t*5.4*side;
+        var rad = ew*.08*(i/7);
         var px = Math.cos(ang)*rad, py = Math.sin(ang)*rad;
         if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
       }
       c.stroke();
+      c.closePath();
       c.restore();
       return;
     }
-    if (moodKey === "love"){
-      c.save();
-      c.scale(er*1.12/16, er*1.12/16);
-      heart(c, 0, 0, 16, "#E2556F");
-      c.restore();
-      c.restore();
-      return;
-    }
-    if (open < .07){
-      c.strokeStyle = "#3A2C3C";
-      c.lineWidth = Math.max(2.4, er*.13);
+
+    if (face === "happy"){
+      var hh2 = eh*(0.17 + open*.15);
+      c.strokeStyle = glow;
+      c.lineWidth = Math.max(3, eh*.14);
       c.lineCap = "round";
       c.beginPath();
-      c.moveTo(-er*.8, 0);
-      c.quadraticCurveTo(0, er*.30, er*.8, 0);
+      c.moveTo(-ew*.34, hh2*.85);
+      c.quadraticCurveTo(0, -hh2*1.05, ew*.34, hh2*.85);
       c.stroke();
-      c.strokeStyle = "rgba(140,90,70,.18)";
-      c.lineWidth = 1.4;
-      c.beginPath();
-      c.moveTo(-er*.7, er*.16);
-      c.quadraticCurveTo(0, er*.42, er*.7, er*.16);
+      c.strokeStyle = "rgba(255,255,255,.8)";
+      c.lineWidth = Math.max(1.4, eh*.045);
       c.stroke();
       c.restore();
       return;
     }
 
-    // glossy eye
+    var w = ew, h = eh*open;
+    if (face === "wide"){ w *= 1.06; h *= 1.08; }
+    if (face === "angry") h *= .78;
+    if (face === "sleepy" || face === "half"){
+      h = eh*Math.max(.10, open)*(face === "half" ? .52 : .42);
+    }
+
     c.save();
-    c.beginPath();
-    c.ellipse(0, 0, er*.9, er*1.02, 0, 0, 6.283);
-    c.clip();
+    c.rotate(side*(face === "angry" ? .16 : face === "sad" ? -.10 : 0));
 
-    var iris = c.createRadialGradient(-er*.12, -er*.16, er*.05, 0, 0, er*1.15);
-    iris.addColorStop(0, "#4E4074");
-    iris.addColorStop(.55, "#251F3A");
-    iris.addColorStop(1, "#0D0E1B");
-    c.fillStyle = iris;
-    c.fillRect(-er, -er*1.1, er*2, er*2.2);
-
-    // limbal ring gives the iris its depth
-    c.strokeStyle = "rgba(6,5,14,.55)";
-    c.lineWidth = er*.07;
-    c.beginPath(); c.ellipse(0, 0, er*.86, er*.98, 0, 0, 6.283); c.stroke();
-
-    // upper shadow across the eyeball
-    var lidShadow = c.createLinearGradient(0, -er*1.05, 0, -er*.05);
-    lidShadow.addColorStop(0, "rgba(4,3,10,.42)");
-    lidShadow.addColorStop(1, "rgba(4,3,10,0)");
-    c.fillStyle = lidShadow;
-    c.fillRect(-er, -er*1.1, er*2, er*1.1);
-
-    var pr = er*.42*M.pupil;
-    c.fillStyle = "#06070C";
-    c.beginPath();
-    c.arc(look.eyeX*er*.34, look.eyeY*er*.30, pr, 0, 6.283);
+    rr(c, -w*.5, -h*.5, w, h, w*.42);
+    var eg = c.createLinearGradient(0, -h*.5, 0, h*.5);
+    eg.addColorStop(0, "#FFFFFF");
+    eg.addColorStop(.55, "#E9FDFF");
+    eg.addColorStop(1, "#AEEFFF");
+    c.fillStyle = eg;
     c.fill();
 
-    // catchlight: a soft halo under a small sharp core
-    c.fillStyle = "rgba(255,255,255,.16)";
-    c.beginPath(); c.ellipse(-er*.33, -er*.41, er*.35, er*.29, -.4, 0, 6.283); c.fill();
-    c.fillStyle = "rgba(255,255,255,.95)";
-    c.beginPath(); c.ellipse(-er*.34, -er*.42, er*.24, er*.19, -.4, 0, 6.283); c.fill();
-    c.fillStyle = "rgba(255,255,255,.50)";
-    c.beginPath(); c.arc(er*.30, er*.36, er*.09, 0, 6.283); c.fill();
-
-    c.strokeStyle = "rgba(255,255,255,.10)";
-    c.lineWidth = 1.4;
-    c.beginPath(); c.ellipse(0, 0, er*.72, er*.84, 0, .95, 2.2); c.stroke();
-
+    // a little glow inside the bottom of the eye
+    var inner = c.createLinearGradient(0, 0, 0, h*.5);
+    inner.addColorStop(0, hexA(glow, 0));
+    inner.addColorStop(1, hexA(glow, .55));
+    c.save();
+    rr(c, -w*.5, -h*.5, w, h, w*.42);
+    c.clip();
+    c.fillStyle = inner;
+    c.fillRect(-w*.5, 0, w, h*.5);
     c.restore();
 
-    // physical upper lid, clipped to the eye so it never paints on the face
-    var lidY = -er*1.12 + (1 - open)*er*2.24;
-    c.save();
-    c.beginPath();
-    c.ellipse(0, 0, er*.92, er*1.04, 0, 0, 6.283);
-    c.clip();
-    c.beginPath();
-    c.moveTo(-er*1.2, -er*1.4);
-    c.lineTo(er*1.2, -er*1.4);
-    c.lineTo(er*1.2, lidY);
-    c.quadraticCurveTo(0, lidY + er*.20, -er*1.2, lidY);
-    c.closePath();
-    var lidG = c.createLinearGradient(0, -er*1.1, 0, lidY + er*.2);
-    lidG.addColorStop(0, shade(M.color, 5));
-    lidG.addColorStop(1, shade(M.color, -4));
-    c.fillStyle = lidG;
-    c.fill();
-
-    c.strokeStyle = "rgba(120,74,56,.26)";
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(-er*1.2, lidY);
-    c.quadraticCurveTo(0, lidY + er*.20, er*1.2, lidY);
+    c.strokeStyle = hexA(glow, .85);
+    c.lineWidth = 2;
     c.stroke();
-
     c.restore();
 
     c.restore();
   }
 
-  function bodyPath(c, rx, ry){
-    c.beginPath();
-    c.moveTo(0, -ry);
-    c.bezierCurveTo(rx*.62, -ry, rx*.98, -ry*.43, rx*1.01, ry*.10);
-    c.bezierCurveTo(rx*1.03, ry*.76, rx*.56, ry, 0, ry);
-    c.bezierCurveTo(-rx*.56, ry, -rx*1.03, ry*.76, -rx*1.01, ry*.10);
-    c.bezierCurveTo(-rx*.98, -ry*.43, -rx*.62, -ry, 0, -ry);
-    c.closePath();
-  }
-
-  function drawBrows(c, mood, rx, ry, eyeY, eyeDX, er, t){
-    var slant = 0, lift = 1.36, alpha = .42;
-    if (mood === "annoyed"){ slant = .48; lift = 1.22; alpha = .70; }
-    else if (mood === "startled"){ slant = -.1; lift = 1.55; alpha = .46; }
-    else if (mood === "excited"){ slant = -.14; lift = 1.48; alpha = .40; }
-    else if (mood === "bored"){ slant = .04; lift = 1.22; alpha = .26; }
-    else if (mood === "hungry"){ slant = -.08; lift = 1.45; alpha = .36; }
-    else return;
-
+  function drawRobotBrows(c, face, hw, hh, ex, ey, ew, eh, M, t){
+    if (face !== "angry" && face !== "sad" && face !== "startled") return;
+    var y = ey - eh*.74;
     c.save();
-    c.globalAlpha = alpha;
-    c.strokeStyle = "#4A3340";
-    c.lineWidth = Math.max(2.2, rx*.022);
     c.lineCap = "round";
-    for (var s = -1; s <= 1; s += 2){
-      var bx = s*eyeDX;
-      var y = eyeY - er*lift;
+    for (var side = -1; side <= 1; side += 2){
+      var x = side*ex;
+      var tilt = face === "angry" ? -side*.34 : face === "sad" ? side*.24 : 0;
+      c.save();
+      c.translate(x, y - (face === "startled" ? eh*.18 : 0));
+      c.rotate(tilt);
+      c.strokeStyle = M.glow;
+      c.globalAlpha = .35;
+      c.lineWidth = eh*.10;
       c.beginPath();
-      c.moveTo(bx + s*er*.8, y - er*slant*.5);
-      c.quadraticCurveTo(bx, y - er*.1, bx - s*er*.78, y + er*slant*.7);
+      c.moveTo(-ew*.40, 0);
+      c.quadraticCurveTo(0, -eh*.06, ew*.40, 0);
       c.stroke();
+      c.globalAlpha = .95;
+      c.lineWidth = Math.max(2.4, eh*.06);
+      c.strokeStyle = "rgba(255,255,255,.85)";
+      c.stroke();
+      c.restore();
     }
     c.restore();
   }
 
-  function drawMouth(c, x, y, w, h, style, t, yawnK){
+  function drawRobotMouth(c, x, y, w, h, style, M, t, yawnK){
+    var glow = M.glow;
     c.save();
     c.translate(x, y);
     c.lineCap = "round";
-    c.lineJoin = "round";
 
-    if (style === "open"){
-      var big = 1 + (yawnK || 0)*.65;
-      var mw = w*.165*big;
-      var mh = h*.135*big*(1 + Math.sin(t*6.5)*.03);
-      var mg = c.createLinearGradient(0, -mh, 0, mh);
-      mg.addColorStop(0, "#241A24");
-      mg.addColorStop(.6, "#3A2430");
-      mg.addColorStop(1, "#4A2A34");
-      c.fillStyle = mg;
-      c.beginPath(); c.ellipse(0, 0, mw, mh, 0, 0, 6.283); c.fill();
-      c.fillStyle = "#F08296";
-      c.beginPath(); c.ellipse(0, mh*.42, mw*.62, mh*.45, 0, 0, 6.283); c.fill();
-      c.fillStyle = "rgba(255,255,255,.22)";
-      c.beginPath(); c.ellipse(-mw*.35, -mh*.35, mw*.28, mh*.18, -.4, 0, 6.283); c.fill();
-      c.strokeStyle = "rgba(70,40,50,.5)";
-      c.lineWidth = 1.4;
-      c.beginPath(); c.ellipse(0, 0, mw, mh, 0, 0, 6.283); c.stroke();
+    var halo = c.createRadialGradient(0, 0, 1, 0, 0, w*1.6);
+    halo.addColorStop(0, hexA(glow, .18));
+    halo.addColorStop(1, hexA(glow, 0));
+    c.fillStyle = halo;
+    c.beginPath(); c.arc(0, 0, w*1.6, 0, 6.283); c.fill();
 
-    } else if (style === "smile"){
-      c.strokeStyle = "#3A2A38";
-      c.lineWidth = Math.max(3, w*.028);
-      c.beginPath();
-      c.moveTo(-w*.195, -h*.03);
-      c.quadraticCurveTo(0, h*.15, w*.195, -h*.03);
+    function line(){
+      c.globalAlpha = .30;
+      c.strokeStyle = glow;
+      c.lineWidth = 7;
       c.stroke();
-      c.strokeStyle = "rgba(255,255,255,.20)";
-      c.lineWidth = 1.4;
+      c.globalAlpha = 1;
+      c.strokeStyle = "rgba(255,255,255,.9)";
+      c.lineWidth = 2.2;
+      c.stroke();
+    }
+
+    if (style === "sing"){
+      var bars = 5, bw = w*.16, gap = w*.2;
+      for (var i = 0; i < bars; i++){
+        var amp = .35 + Math.abs(Math.sin(t*12 + i*1.3))*.65;
+        var bh = h*1.2*amp;
+        var bx = -w + i*(bw + gap);
+        rr(c, bx, -bh*.5, bw, bh, bw*.5);
+        c.fillStyle = hexA(glow, .55 + .35*amp);
+        c.fill();
+        c.fillStyle = "rgba(255,255,255,.65)";
+        rr(c, bx + bw*.25, -bh*.35, bw*.35, bh*.7, bw*.18);
+        c.fill();
+      }
+
+    } else if (style === "open"){
+      var mh = h*(1.15 + (yawnK||0)*.7);
       c.beginPath();
-      c.moveTo(-w*.15, h*.005);
-      c.quadraticCurveTo(0, h*.155, w*.15, h*.005);
+      c.ellipse(0, 0, w*.55, mh*.55, 0, 0, 6.283);
+      c.fillStyle = "#07090F";
+      c.fill();
+      c.strokeStyle = hexA(glow, .85);
+      c.lineWidth = 2;
+      c.stroke();
+      c.fillStyle = hexA(glow, .55);
+      c.beginPath();
+      c.ellipse(0, mh*.18, w*.26, mh*.16, 0, 0, 6.283);
+      c.fill();
+
+    } else if (style === "wave"){
+      c.beginPath();
+      for (var k = 0; k <= 16; k++){
+        var px = -w + (w*2)*(k/16);
+        var py = Math.sin(t*9 + k*.8)*h*.22;
+        if (k === 0) c.moveTo(px, py); else c.lineTo(px, py);
+      }
+      c.lineWidth = 2.2;
+      c.strokeStyle = "rgba(255,255,255,.85)";
+      c.stroke();
+      c.globalAlpha = .3;
+      c.strokeStyle = glow;
+      c.lineWidth = 7;
+      c.stroke();
+      c.globalAlpha = 1;
+
+    } else if (style === "o"){
+      c.beginPath();
+      c.arc(0, 0, w*.18, 0, 6.283);
+      c.fillStyle = "#07090F";
+      c.fill();
+      c.strokeStyle = "rgba(255,255,255,.85)";
+      c.lineWidth = 2;
       c.stroke();
 
     } else if (style === "frown"){
-      c.strokeStyle = "#3A2A38";
-      c.lineWidth = Math.max(3, w*.028);
       c.beginPath();
-      c.moveTo(-w*.15, h*.06);
-      c.quadraticCurveTo(0, -h*.065, w*.15, h*.06);
-      c.stroke();
-
-    } else if (style === "o"){
-      c.fillStyle = "#33222E";
-      c.beginPath(); c.ellipse(0, 0, w*.06, h*.082, 0, 0, 6.283); c.fill();
-      c.fillStyle = "rgba(255,255,255,.18)";
-      c.beginPath(); c.ellipse(-w*.015, -h*.025, w*.02, h*.025, 0, 0, 6.283); c.fill();
-
-    } else if (style === "wave"){
-      c.strokeStyle = "#3A2A38";
-      c.lineWidth = Math.max(3, w*.028);
-      c.beginPath();
-      for (var i = 0; i <= 20; i++){
-        var px = -w*.18 + (w*.36)*(i/20);
-        var py = Math.sin(t*9 + i*.7)*h*.038;
-        if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
-      }
-      c.stroke();
+      c.moveTo(-w*.55, h*.14);
+      c.quadraticCurveTo(0, -h*.40, w*.55, h*.14);
+      line();
 
     } else if (style === "small"){
-      c.strokeStyle = "#3A2A38";
-      c.lineWidth = Math.max(3, w*.028);
-      c.beginPath(); c.arc(0, -h*.01, w*.062, .15, Math.PI - .15); c.stroke();
+      c.beginPath();
+      c.moveTo(-w*.22, 0);
+      c.quadraticCurveTo(0, h*.18, w*.22, 0);
+      line();
+
+    } else if (style === "flat"){
+      c.beginPath();
+      c.moveTo(-w*.35, 0);
+      c.lineTo(w*.35, 0);
+      line();
 
     } else {
-      c.strokeStyle = "#3A2A38";
-      c.lineWidth = Math.max(3, w*.028);
-      c.beginPath(); c.moveTo(-w*.13, 0); c.lineTo(w*.13, 0); c.stroke();
+      c.beginPath();
+      c.moveTo(-w*.55, -h*.06);
+      c.quadraticCurveTo(0, h*.42, w*.55, -h*.06);
+      line();
     }
     c.restore();
+  }
+
+
+  // ------------------------------------------------------------------ sound
+  function ensureAudio(){
+    if (!soundOn) return null;
+    if (!audioCtx){
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === "suspended") { try { audioCtx.resume(); } catch(e){} }
+    return audioCtx;
+  }
+
+  function tone(freq, dur, gain, type, delay){
+    if (!soundOn) return;
+    var ac = ensureAudio();
+    if (!ac) return;
+    var at = ac.currentTime + (delay || 0);
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, at);
+    g.gain.setValueAtTime(.0001, at);
+    g.gain.exponentialRampToValueAtTime(gain, at + .012);
+    g.gain.exponentialRampToValueAtTime(.0001, at + dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(at); o.stop(at + dur + .03);
+  }
+
+  function midi(n){ return 440 * Math.pow(2, (n - 69)/12); }
+
+  function stopMusic(){
+    if (robot.musicTimer){ clearInterval(robot.musicTimer); robot.musicTimer = 0; }
+    if (robot.singTimer){ clearTimeout(robot.singTimer); robot.singTimer = 0; }
+  }
+
+  function startDance(){
+    var n = now();
+    if (robot.danceUntil > n + 800) return;   // already dancing
+    stopMusic();
+    robot.danceUntil = n + 9500;
+    robot.singUntil = 0;
+    look.tempMood = "dancing"; look.tempUntil = robot.danceUntil;
+    look.kick = 1.6;
+    burst("note", 5);
+    say("Let's dance!", true);
+    speak("Let's dance!");
+    if (!soundOn) return;
+    var step = 0;
+    var seq = [57, 60, 64, 67, 64, 60, 57, 55];
+    robot.musicTimer = setInterval(function(){
+      if (now() > robot.danceUntil){ stopMusic(); return; }
+      var s = step++;
+      if (s % 8 === 0 || s % 8 === 4) tone(104, .17, .18, "sine");
+      if (s % 2 === 1) tone(6800, .02, .012, "square");
+      if (s % 2 === 0){
+        var note = seq[(s/2) % seq.length] + (s % 16 < 8 ? 0 : 12);
+        tone(midi(note), .15, .045, "triangle");
+      }
+      if (s % 8 === 6) tone(190, .08, .04, "square");
+      if (s % 4 === 2){ burst("note", 1); look.kick = .5; }
+    }, 215);
+  }
+
+  function startSing(){
+    var n = now();
+    stopMusic();
+    robot.singUntil = n + 6800;
+    robot.danceUntil = 0;
+    look.tempMood = "singing"; look.tempUntil = robot.singUntil;
+    burst("note", 4);
+    speak("La la la!");
+    say("La la la, I'm a happy little robot!", true);
+    if (!soundOn) return;
+    var mel = [69, 72, 76, 74, 72, 69, 67, 72, 76, 79];
+    for (var i = 0; i < mel.length; i++){
+      (function(k){
+        setTimeout(function(){
+          if (now() > robot.singUntil) return;
+          tone(midi(mel[k]), .32, .06, "sine");
+          tone(midi(mel[k] + 12), .10, .012, "triangle", .02);
+          if (k % 2 === 0) burst("note", 1);
+        }, k * 430);
+      })(i);
+    }
+  }
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function say(text, force){
+    if (!text || !voiceOn || !soundOn) return;
+    var n = now();
+    if (!force && n < (robot.sayCool || 0)) return;
+    robot.sayCool = n + 2600;
+    robot.talkUntil = n + Math.min(4200, 700 + text.length*62);
+    try {
+      if (!window.speechSynthesis) return;
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.pitch = 1.45; u.rate = 1.05; u.volume = .85;
+      var vs = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
+      for (var i = 0; i < vs.length; i++){
+        if (/^en/i.test(vs[i].lang) && /female|samantha|zira|aria|jenny|google uk english female/i.test(vs[i].name)){
+          u.voice = vs[i]; break;
+        }
+      }
+      speechSynthesis.speak(u);
+    } catch(e){}
   }
 
   function drawFx(t){
@@ -1269,6 +1460,10 @@
       } else if (p.kind === "crumb") {
         ctx.fillStyle = "#C98A5B";
         ctx.beginPath(); ctx.arc(0,0,p.size*.26,0,Math.PI*2); ctx.fill();
+      } else if (p.kind === "note") {
+        ctx.fillStyle = (i % 2) ? "#9EE7FF" : "#FFAFE6";
+        ctx.font = "600 " + Math.max(15, p.size*1.7) + "px ui-sans-serif,system-ui,sans-serif";
+        ctx.fillText("\u266a", 0, 0);
       }
       ctx.restore();
     }
@@ -1279,8 +1474,8 @@
     ctx.fillStyle = "rgba(200,215,255,.8)";
     for (var i=0;i<3;i++){
       var k = (t*.35 + i*.33) % 1;
-      var x = bodyBox.cx + bodyBox.rx * (.45 + k*.45);
-      var y = bodyBox.cy - bodyBox.ry * (.55 + k*.55);
+      var x = bodyBox.cx + bodyBox.rx * (.80 + k*.30);
+      var y = bodyBox.cy - bodyBox.ry * (.60 + k*.30);
       ctx.globalAlpha = Math.sin(k*Math.PI) * .85;
       ctx.font = "600 " + (11 + k*15) + "px ui-sans-serif,system-ui,sans-serif";
       ctx.fillText("z", x, y);
@@ -1331,7 +1526,7 @@
 
   var pet = { active:false, moved:0, start:0, lastSend:0, x0:0, y0:0 };
   canvas.addEventListener("pointerdown", function(e){
-    if (!audioCtx && soundOn) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(err){} }
+    ensureAudio();
     var p = normPos(e);
     pet.active = true; pet.moved = 0; pet.start = now();
     pet.x0 = p.x; pet.y0 = p.y; pet.lastSend = 0;
@@ -1358,7 +1553,18 @@
 
   // ----------------------------------------------------------------- controls
   Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function(btn){
-    btn.addEventListener("click", function(){ send({t:"cmd", c:btn.getAttribute("data-act")}); });
+    btn.addEventListener("click", function(){
+      var act = btn.getAttribute("data-act");
+      send({t:"cmd", c:act});
+      if (act === "play") startDance();
+    });
+  });
+  $("singBtn").addEventListener("click", function(e){ e.stopPropagation(); startSing(); });
+  $("voiceBtn").addEventListener("click", function(){
+    voiceOn = !voiceOn;
+    $("voiceBtn").textContent = voiceOn ? "on" : "off";
+    if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+    try { localStorage.setItem("db_voice", voiceOn ? "1" : "0"); } catch(e){}
   });
   $("gear").addEventListener("click", function(){ $("scrim").className = "scrim open"; refreshSettings(); });
   $("closeSheet").addEventListener("click", function(){ $("scrim").className = "scrim"; });
@@ -1393,7 +1599,9 @@
     if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
     var k = e.key.toLowerCase();
     if (k === "f") send({t:"cmd", c:"feed"});
-    else if (k === "p") send({t:"cmd", c:"play"});
+    else if (k === "p") { send({t:"cmd", c:"play"}); startDance(); }
+    else if (k === "g") startSing();
+    else if (k === "v") $("voiceBtn").click();
     else if (k === "s") send({t:"cmd", c: state.sleep ? "wake" : "sleep"});
     else if (k === "escape") $("scrim").className = "scrim";
   });
@@ -1429,6 +1637,8 @@
   try {
     var s = localStorage.getItem("db_sound");
     if (s === "0") { soundOn = false; $("soundBtn").textContent = "off"; }
+    var vv = localStorage.getItem("db_voice");
+    if (vv === "0") { voiceOn = false; $("voiceBtn").textContent = "off"; }
   } catch(e){}
   resize();
   refreshSensors();

@@ -12,10 +12,17 @@ light, sound, battery. Everything talks over your WiFi; nothing is in the cloud.
 
 ## What it does
 
-- Blinks, breathes, looks around, squints, gets bored, falls asleep.
+- **EMO-inspired glass face**: a dark screen with glowing eyes, physical blinks,
+  saccades, head tilt and a springy little body.
+- Emotions drawn with the eyes: happy arcs, hearts, stars, spirals, angry brows,
+  half-lidded boredom, sleepy lines, wide-eyed startles.
 - Moods driven by needs: **happiness, energy, food, bond** (persisted in NVS).
 - Reacts to touch: tap = poke (it gets startled, then annoyed if you spam it),
-  drag = pet (hearts, blush, purring).
+  drag = pet (hearts, blush, voice lines).
+- **Dance** makes it play a beat and bounce; **Sing** gives it a glowing
+  equalizer mouth and a little melody.
+- **Voice**: short spoken lines (toggle in Settings) for pets, snacks, dance,
+  sleep and more, plus WebAudio chirps.
 - Reacts to the phone's senses: shake it → dizzy; cover the light sensor →
   sleepy; a loud room → startled; feeding and playing change its mood.
 - Remembers its name, personality and level across reboots.
@@ -100,7 +107,8 @@ Keep the app in the foreground; the screen stays awake by default.
 
 - **Click / tap** the buddy: poke.
 - **Drag across it**: pet.
-- **Feed / Play / Sleep** buttons (or keys `F`, `P`, `S`).
+- **Feed / Dance / Sing / Sleep** buttons (or keys `F`, `P`, `G`, `S`;
+  `V` toggles the voice).
 - Settings (⚙) for name, sound, WiFi, reset.
 - Mood, stats and sensor HUD update live from the ESP32.
 
@@ -118,7 +126,7 @@ Serial commands (`115200`): `status`, `feed`, `play`, `sleep`, `poke`, `pet`,
 
 - The firmware is dependency-free C++: a hand-rolled HTTP/1.1 + WebSocket server
   (SHA-1/base64 included), a newline JSON socket, WiFi AP+STA, mDNS, ArduinoOTA.
-- The face is a single 52 KB HTML file, gzipped at build time into the firmware
+- The face is a single 68 KB HTML file, gzipped at build time into the firmware
   (`tools/embed_web.py`) and served with `Content-Encoding: gzip`.
 - The phone app is plain Java + Canvas, **no AndroidX, no third-party libraries**,
   so it builds in seconds and installs on Android 5.

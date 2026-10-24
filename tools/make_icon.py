@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Android launcher icon (same buddy as the app) in all densities."""
+"""Generate the Android launcher icon: the same EMO-style robot as the app."""
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -14,85 +14,116 @@ def lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
+def glow_ellipse(size, box, color, steps=24, strength=40):
+    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    x0, y0, x1, y1 = box
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    rx, ry = (x1 - x0) / 2, (y1 - y0) / 2
+    for i in range(steps, 0, -1):
+        k = i / steps
+        a = int(strength * (1 - k) ** 1.6)
+        d.ellipse([cx - rx * k, cy - ry * k, cx + rx * k, cy + ry * k],
+                  fill=color + (a,))
+    return layer
+
+
 def draw_icon(px: int) -> Image.Image:
     s = px * SS
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    # rounded navy tile
-    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=s * 0.235, fill=(13, 17, 29, 255))
+    # navy tile
+    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=s * .235, fill=(13, 17, 29, 255))
 
-    # warm ambient glow
-    glow = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for i in range(26, 0, -1):
-        r = s * 0.62 * i / 26
-        a = int(26 * (1 - i / 26) ** 1.4)
-        gd.ellipse([s * .5 - r, s * .57 - r * .9, s * .5 + r, s * .57 + r * .9],
-                   fill=(255, 180, 122, a))
-    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(s * .02)))
+    # cyan ambient glow behind the robot
+    img.alpha_composite(glow_ellipse(s, [s * .16, s * .18, s * .84, s * .86],
+                                     (121, 230, 255), 26, 46)
+                        .filter(ImageFilter.GaussianBlur(s * .02)))
 
-    cx, cy = s * .5, s * .57
-    rx, ry = s * .295, s * .275
-    box = [cx - rx, cy - ry, cx + rx, cy + ry]
+    cx, cy = s * .5, s * .53
+    hw, hh = s * .315, s * .29
+    pad = hw * .14
+    srad = hw * .28
 
     # feet
-    d.ellipse([cx - rx * .54, cy + ry * .84, cx - rx * .1, cy + ry * 1.02], fill=(233, 190, 154, 255))
-    d.ellipse([cx + rx * .1, cy + ry * .84, cx + rx * .54, cy + ry * 1.02], fill=(233, 190, 154, 255))
+    foot_w, foot_h = hw * .34, hh * .28
+    for side in (-1, 1):
+        fx = cx + side * hw * .38 - foot_w / 2
+        fy = cy + hh * .78
+        d.rounded_rectangle([fx, fy, fx + foot_w, fy + foot_h],
+                            radius=foot_w * .42, fill=(221, 229, 238, 255))
+        d.rounded_rectangle([fx, fy + foot_h * .55, fx + foot_w, fy + foot_h],
+                            radius=foot_w * .3, fill=(199, 209, 221, 255))
 
-    # antenna
-    d.line([(cx, cy - ry * .9), (cx + rx * .04, cy - ry * 1.18), (cx + rx * .1, cy - ry * 1.26)],
-           fill=(228, 182, 146, 255), width=max(2, int(s * .012)))
-    tip = (cx + rx * .1, cy - ry * 1.26)
-    d.ellipse([tip[0] - s * .03, tip[1] - s * .03, tip[0] + s * .03, tip[1] + s * .03],
-              fill=(255, 180, 122, 255))
-
-    # body: vertical gradient masked by the egg shape
+    # shell gradient
     grad = Image.new("RGB", (1, s))
     for y in range(s):
         t = y / float(s)
-        if t < .45:
-            c = lerp((255, 249, 240), (255, 232, 210), t / .45)
+        if t < .55:
+            c = lerp((255, 255, 255), (238, 243, 249), min(1, t / .55))
         else:
-            c = lerp((255, 232, 210), (244, 193, 158), (t - .45) / .55)
+            c = lerp((238, 243, 249), (190, 202, 216), (t - .55) / .45)
         grad.putpixel((0, y), c)
     grad = grad.resize((s, s))
 
-    mask = Image.new("L", (s, s), 0)
-    ImageDraw.Draw(mask).ellipse(box, fill=255)
-    img.paste(grad, (0, 0), mask)
+    shell_mask = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(shell_mask).rounded_rectangle(
+        [cx - hw, cy - hh, cx + hw, cy + hh], radius=hw * .28, fill=255)
+    img.paste(grad, (0, 0), shell_mask)
 
-    # specular highlight
-    hilite = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    hd = ImageDraw.Draw(hilite)
-    hd.ellipse([cx - rx * .6, cy - ry * .66, cx - rx * .26, cy - ry * .5],
-               fill=(255, 255, 255, 110))
-    img.alpha_composite(hilite.filter(ImageFilter.GaussianBlur(s * .03)))
+    # shell outline
+    d.rounded_rectangle([cx - hw, cy - hh, cx + hw, cy + hh],
+                        radius=hw * .28, outline=(120, 134, 152, 150),
+                        width=max(1, int(s * .006)))
 
-    # blush, softened
-    blush = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    bd = ImageDraw.Draw(blush)
+    # screen bezel + glass
+    sx0, sy0 = cx - hw + pad, cy - hh + pad
+    sx1, sy1 = cx + hw - pad, cy + hh - pad
+    d.rounded_rectangle([sx0, sy0, sx1, sy1], radius=srad,
+                        fill=(17, 23, 32, 255))
+    inner = pad * .28
+    d.rounded_rectangle([sx0 + inner, sy0 + inner, sx1 - inner, sy1 - inner],
+                        radius=srad * .92, fill=(6, 9, 15, 255))
+
+    # screen glow
+    gs = glow_ellipse(s, [sx0 + (sx1 - sx0) * .12, sy0 + (sy1 - sy0) * .48,
+                          sx1 - (sx1 - sx0) * .12, sy1 + (sy1 - sy0) * .1],
+                      (121, 230, 255), 18, 60)
+    screen_mask = Image.new("L", (s, s), 0)
+    ImageDraw.Draw(screen_mask).rounded_rectangle(
+        [sx0, sy0, sx1, sy1], radius=srad, fill=255)
+    img.paste(Image.composite(Image.new("RGBA", (s, s), (0, 0, 0, 0)), gs, screen_mask),
+              (0, 0), screen_mask)
+
+    # eyes with a soft bloom
+    ew, eh = hw * .34, hh * .40
+    ey = cy + hh * .005
     for side in (-1, 1):
-        bx = cx + side * rx * .58
-        bd.ellipse([bx - rx * .18, cy + ry * .08, bx + rx * .18, cy + ry * .3],
-                   fill=(255, 116, 126, 255))
-    blush = blush.filter(ImageFilter.GaussianBlur(s * .028))
-    a = blush.split()[3].point(lambda v: int(v * .5))
-    blush.putalpha(a)
-    img.alpha_composite(blush)
-
-    # eyes
-    for side in (-1, 1):
-        ex = cx + side * rx * .37
-        ey = cy - ry * .08
-        er = rx * .2
-        d.ellipse([ex - er, ey - er * 1.1, ex + er, ey + er * 1.1], fill=(34, 29, 46, 255))
-        d.ellipse([ex - er * .46, ey - er * .64, ex + er * .0, ey - er * .2],
-                  fill=(255, 255, 255, 245))
+        ex = cx + side * hw * .40
+        img.alpha_composite(glow_ellipse(s, [ex - ew * .8, ey - eh * .8, ex + ew * .8, ey + eh * .8],
+                                         (121, 230, 255), 16, 90)
+                            .filter(ImageFilter.GaussianBlur(s * .012)))
+        d.rounded_rectangle([ex - ew / 2, ey - eh / 2, ex + ew / 2, ey + eh / 2],
+                            radius=ew * .42, fill=(240, 254, 255, 255))
+        d.rounded_rectangle([ex - ew / 2, ey + eh * .10, ex + ew / 2, ey + eh / 2],
+                            radius=ew * .40, fill=(174, 239, 255, 255))
 
     # smile
-    d.arc([cx - rx * .3, cy + ry * .17, cx + rx * .3, cy + ry * .53], 24, 156,
-          fill=(58, 42, 56, 255), width=max(3, int(s * .021)))
+    d.arc([cx - hw * .30, ey + eh * .55, cx + hw * .30, ey + eh * 1.35],
+          22, 158, fill=(230, 253, 255, 235), width=max(2, int(s * .014)))
+
+    # top status button + LED
+    nub_w, nub_h = hw * .22, hw * .10
+    d.rounded_rectangle([cx - nub_w / 2, cy - hh - nub_h * .8,
+                         cx + nub_w / 2, cy - hh + nub_h * .2],
+                        radius=nub_h * .45, fill=(244, 248, 252, 255))
+    img.alpha_composite(glow_ellipse(s, [cx - hw * .16, cy - hh - hw * .22,
+                                         cx + hw * .16, cy - hh + hw * .10],
+                                     (121, 230, 255), 16, 120))
+    d.ellipse([cx - hw * .038, cy - hh - hw * .07,
+               cx + hw * .038, cy - hh + hw * .006],
+              fill=(121, 230, 255, 255))
 
     return img.resize((px, px), Image.LANCZOS)
 
