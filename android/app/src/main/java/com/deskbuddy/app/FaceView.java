@@ -28,6 +28,7 @@ public class FaceView extends View {
     interface Listener {
         void onPoke(float x, float y);
         void onPet(float amount);
+        void onExitDisplay();
     }
 
     private static final int M_HAPPY = 0, M_CURIOUS = 1, M_SLEEPY = 2, M_SLEEPING = 3,
@@ -63,6 +64,9 @@ public class FaceView extends View {
     private long tempUntil = 0;
 
     private float cx, cy, rx, ry;
+    private boolean faceOnly = false;
+    private int cornerTaps = 0;
+    private long cornerAt = 0;
     private long lastFrame = 0;
     private long blinkAt = 0;
     private float blinkAmt = 0;
@@ -112,6 +116,12 @@ public class FaceView extends View {
     }
 
     void setListener(Listener l) { listener = l; }
+
+    void setFaceOnly(boolean on) {
+        faceOnly = on;
+        layoutFace(getWidth(), getHeight());
+        invalidate();
+    }
 
     void setMood(String name) {
         if (name == null) return;
@@ -172,14 +182,29 @@ public class FaceView extends View {
     // ------------------------------------------------------------------ layout
     @Override protected void onSizeChanged(int w, int h, int ow, int oh) {
         super.onSizeChanged(w, h, ow, oh);
-        float radius = Math.min(w * 0.288f, h * 0.22f);
-        if (radius < 60 * density) radius = 60 * density;
-        rx = radius * 1.06f;
-        ry = radius;
-        cx = w / 2f;
-        cy = h * 0.42f;
-        float headH = ry * 1.5f;
-        if (cy - headH * .5f < 70 * density) cy = 70 * density + headH * .5f;
+        layoutFace(w, h);
+    }
+
+    private void layoutFace(int w, int h) {
+        if (w <= 0 || h <= 0) return;
+        float radius;
+        if (faceOnly) {
+            radius = Math.min(w * 0.40f, h * 0.28f);
+            if (radius < 60 * density) radius = 60 * density;
+            rx = radius * 1.06f;
+            ry = radius;
+            cx = w / 2f;
+            cy = h * 0.50f;
+        } else {
+            radius = Math.min(w * 0.288f, h * 0.22f);
+            if (radius < 60 * density) radius = 60 * density;
+            rx = radius * 1.06f;
+            ry = radius;
+            cx = w / 2f;
+            cy = h * 0.42f;
+            float headH = ry * 1.5f;
+            if (cy - headH * .5f < 70 * density) cy = 70 * density + headH * .5f;
+        }
     }
 
     // ------------------------------------------------------------------- draw
@@ -762,7 +787,18 @@ public class FaceView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 touching = false;
-                if (now - downAt < 280 && moveAmount < 20 * density) {
+                if (now - downAt < 320 && moveAmount < 24 * density) {
+                    if (touchX < getWidth() * .22f && touchY < getHeight() * .22f) {
+                        if (now - cornerAt > 1100) cornerTaps = 0;
+                        cornerAt = now;
+                        cornerTaps++;
+                        if (cornerTaps >= 3) {
+                            cornerTaps = 0;
+                            if (listener != null) listener.onExitDisplay();
+                            touchX = -1;
+                            break;
+                        }
+                    }
                     if (listener != null) {
                         listener.onPoke(clamp((touchX - cx) / (rx * 2) + .5f, 0, 1),
                                 clamp((touchY - cy) / (ry * 2) + .5f, 0, 1));

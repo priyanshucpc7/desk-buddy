@@ -32,11 +32,20 @@ Living.AI — just a love letter to tiny desk robots.
 - Remembers its name, personality and level across reboots.
 - Laptop UI is self-contained: **no app, no internet, no external libraries** —
   served straight from the ESP32.
-- Android app renders the same buddy full-screen and streams sensor data back.
+- **Display mode**: one tap hides all controls and fills the screen with the face
+  only — perfect for a phone on a stand, and the same layout scales down to
+  240×240, 128×64 or any small panel you buy later. See [docs/DISPLAY.md](docs/DISPLAY.md).
+- Android app renders the same buddy full-screen, has a face-only display mode,
+  and streams sensor data back.
 
 | Web UI | Phone face |
 | --- | --- |
 | ![browser](docs/screenshot-web.jpg) | ![phone](docs/screenshot-phone.jpg) |
+
+**Display mode** — the same face with every control hidden, ready for a small
+OLED panel or a phone on a stand:
+
+![Display mode](docs/screenshot-display.jpg)
 
 ## Hardware
 
@@ -113,6 +122,8 @@ Keep the app in the foreground; the screen stays awake by default.
 - **Drag across it**: pet.
 - **Feed / Dance / Sing / Sleep** buttons (or keys `F`, `P`, `G`, `S`;
   `V` toggles the voice).
+- **Display mode** button (monitor icon) or open `/?screen=1` — face only,
+  no chrome. Triple-tap the top-left or press `Esc` to exit.
 - Settings (⚙) for name, sound, WiFi, reset.
 - Mood, stats and sensor HUD update live from the ESP32.
 

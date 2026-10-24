@@ -63,6 +63,9 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
     private EditText hostInput;
     private CheckBox micBox;
     private CheckBox awakeBox;
+    private CheckBox displayBox;
+    private View topBar, bottomBar;
+    private boolean displayMode = false;
     private TextView panelHint;
 
     private NsdManager nsd;
@@ -92,6 +95,8 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         } else {
             openPanel(true);
         }
+        displayMode = prefs.display() && host != null && host.length() > 0;
+        applyDisplayMode();
 
         if (prefs.mic() && Build.VERSION.SDK_INT >= 23 && !micGranted()) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC);
@@ -115,6 +120,12 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
     @Override protected void onPause() {
         super.onPause();
         stopSensors();
+    }
+
+    @Override public void onBackPressed() {
+        if (displayMode) { setDisplayMode(false); return; }
+        if (panel != null && panel.getVisibility() == View.VISIBLE) { closePanel(); return; }
+        super.onBackPressed();
     }
 
     @Override protected void onDestroy() {
@@ -156,6 +167,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         // top bar
         LinearLayout top = new LinearLayout(this);
+        topBar = top;
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding((int) dp(16), (int) dp(12), (int) dp(12), (int) dp(8));
@@ -214,6 +226,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         // bottom bar
         LinearLayout bottom = new LinearLayout(this);
+        bottomBar = bottom;
         bottom.setOrientation(LinearLayout.VERTICAL);
         bottom.setPadding((int) dp(14), 0, (int) dp(14), (int) dp(18));
         bottom.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -421,6 +434,29 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
             }
         });
         card.addView(awakeBox);
+
+        displayBox = new CheckBox(this);
+        displayBox.setText("Display mode (face only)");
+        displayBox.setTextColor(0xFFC9D1DF);
+        displayBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        displayBox.setChecked(displayMode);
+        displayBox.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                setDisplayMode(displayBox.isChecked());
+            }
+        });
+        LinearLayout.LayoutParams dispLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dispLp.topMargin = (int) dp(6);
+        card.addView(displayBox, dispLp);
+
+        TextView dispHint = new TextView(this);
+        dispHint.setText("Hides every control, like a small OLED screen. "
+                + "Triple-tap the top-left corner or press Back to leave.");
+        dispHint.setTextColor(0xFF5C6579);
+        dispHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        dispHint.setLineSpacing(dp(2), 1f);
+        card.addView(dispHint);
 
         TextView close = plainButton("Done", false);
         close.setOnClickListener(new View.OnClickListener() {
@@ -695,7 +731,29 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
     private boolean sleeping = false;
 
+    private void setDisplayMode(boolean on) {
+        displayMode = on;
+        prefs.setDisplay(on);
+        if (displayBox != null) displayBox.setChecked(on);
+        applyDisplayMode();
+    }
+
+    private void applyDisplayMode() {
+        if (topBar != null) topBar.setVisibility(displayMode ? View.GONE : View.VISIBLE);
+        if (bottomBar != null) bottomBar.setVisibility(displayMode ? View.GONE : View.VISIBLE);
+        if (face != null) face.setFaceOnly(displayMode);
+        if (displayMode) {
+            closePanel();
+            if (speech != null) {
+                speech.animate().cancel();
+                speech.setAlpha(0f);
+                speech.setVisibility(View.INVISIBLE);
+            }
+        }
+    }
+
     private void showSpeech(String message) {
+        if (displayMode) return;
         if (message == null || message.length() == 0) return;
         speech.setText(message);
         speech.setVisibility(View.VISIBLE);
@@ -729,6 +787,10 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         link.send(String.format(Locale.US,
                 "{\"t\":\"touch\",\"kind\":\"tap\",\"x\":%.2f,\"y\":%.2f}", x, y));
         haptic();
+    }
+
+    @Override public void onExitDisplay() {
+        if (displayMode) setDisplayMode(false);
     }
 
     @Override public void onPet(float amount) {

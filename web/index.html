@@ -266,6 +266,13 @@
   @media (prefers-reduced-motion: reduce){
     *{animation:none !important; transition:none !important}
   }
+
+  /* pure face mode for a phone / OLED-style panel */
+  body.display{background:#000 !important; overflow:hidden; overscroll-behavior:none}
+  body.display #stage{background:#000}
+  body.display header, body.display .statusline, body.display .dock,
+  body.display #speech, body.display .toast, body.display .scrim{display:none !important}
+  body.display *{cursor:none !important}
 </style>
 </head>
 <body>
@@ -286,6 +293,9 @@
     <div class="pill" id="wifiPill" title="network">
       <span class="dot" id="dot"></span><span id="link">connecting</span>
     </div>
+    <button class="icon-btn" id="screenBtn" aria-label="display mode" title="Display mode">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    </button>
     <button class="icon-btn" id="gear" aria-label="settings">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
     </button>
@@ -354,6 +364,8 @@
       <h4>Desk</h4>
       <div class="row"><span class="hint">Sound effects</span><button class="btn" id="soundBtn">on</button></div>
       <div class="row"><span class="hint">Voice</span><button class="btn" id="voiceBtn">on</button></div>
+      <div class="row"><span class="hint">Display mode <span style="opacity:.6">(OLED / kiosk)</span></span><button class="btn" id="displayBtn">open</button></div>
+      <div class="hint" id="displayHint">Face only, no page controls — fills a phone or a small display. Triple-tap the top-left corner (or press Esc) to come back.</div>
       <div class="row"><span class="hint">Phone sensors</span><span class="hint" id="phoneHint">waiting…</span></div>
       <div class="hint">Open the DeskBuddy app on the Android phone, join this same WiFi, then enter
         <span class="kbd" id="hostText">deskbuddy.local</span>. The phone becomes a second face plus the sensor pack.</div>
@@ -400,6 +412,8 @@
   var bodyBox = { cx:0, cy:0, rx:0, ry:0 };
   var t0 = performance.now();
   var soundOn = true, voiceOn = true, audioCtx = null;
+  var screenMode = false, wakeLock = null, fsRequested = false;
+  var exitTaps = 0, exitTapTimer = 0;
   var forcedMood = (function(){
     var m = location.search.match(/[?&]mood=([a-z]+)/);
     return m ? m[1] : "";
@@ -439,6 +453,16 @@
     positionSpeech();
   }
   function layout(){
+    if (screenMode){
+      var pad = Math.min(W, H) * .055;
+      var r = Math.min((W - pad*2)/1.717, (H - pad*2)/1.80);
+      r = Math.max(20, r);
+      bodyBox.rx = r * 1.06;
+      bodyBox.ry = r;
+      bodyBox.cx = W / 2;
+      bodyBox.cy = H / 2 - r * .04;
+      return;
+    }
     var mobile = W <= 860;
     var dockH = mobile ? 245 : 170;
     var avail = H - dockH - 110;
@@ -822,7 +846,7 @@
     ctx.clearRect(0, 0, W, H);
 
     // ---- dust motes ---------------------------------------------------
-    for (var i = 0; i < DUST.length; i++){
+    for (var i = 0; !screenMode && i < DUST.length; i++){
       var p = DUST[i];
       p.y -= p.sp*dt;
       p.x += Math.sin(t*.4 + p.ph)*dt*3;
@@ -1531,6 +1555,11 @@
   var pet = { active:false, moved:0, start:0, lastSend:0, x0:0, y0:0 };
   canvas.addEventListener("pointerdown", function(e){
     ensureAudio();
+    if (screenMode && !fsRequested && !document.fullscreenElement){
+      fsRequested = true;
+      requestWake();
+      tryFullscreen();
+    }
     var p = normPos(e);
     pet.active = true; pet.moved = 0; pet.start = now();
     pet.x0 = p.x; pet.y0 = p.y; pet.lastSend = 0;
@@ -1541,6 +1570,13 @@
     if (!pet.active) return;
     pet.active = false;
     var dt = now() - pet.start;
+    if (screenMode && dt < 320 && pet.moved < 18 &&
+        pet.x0 < Math.min(110, W*.22) && pet.y0 < Math.min(110, H*.22)){
+      exitTaps++;
+      clearTimeout(exitTapTimer);
+      exitTapTimer = setTimeout(function(){ exitTaps = 0; }, 900);
+      if (exitTaps >= 3){ exitTaps = 0; exitDisplay(); return; }
+    }
     if (dt < 260 && pet.moved < 14) send({t:"touch", kind:"tap", x:normX(pet.x0), y:normY(pet.y0)});
   });
   canvas.addEventListener("pointercancel", function(){ pet.active = false; });
@@ -1555,6 +1591,50 @@
   function normX(x){ return clamp((x - bodyBox.cx) / (bodyBox.rx*2) + .5, 0, 1); }
   function normY(y){ return clamp((y - bodyBox.cy) / (bodyBox.ry*2) + .5, 0, 1); }
 
+  // ---------------------------------------------------------- display mode
+  function tryFullscreen(){
+    try {
+      var el = document.documentElement;
+      if (el.requestFullscreen) { var q = el.requestFullscreen(); if (q && q.catch) q.catch(function(){}); }
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } catch(e){}
+  }
+  function tryExitFullscreen(){
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(function(){});
+      else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } catch(e){}
+  }
+  function requestWake(){
+    try {
+      if (!navigator.wakeLock || wakeLock) return;
+      navigator.wakeLock.request("screen").then(function(l){ wakeLock = l; }).catch(function(){});
+    } catch(e){}
+  }
+  function releaseWake(){
+    try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch(e){}
+  }
+  function setScreenMode(on, full){
+    screenMode = !!on;
+    document.body.classList.toggle("display", screenMode);
+    try {
+      if (screenMode) localStorage.setItem("db_screen", "1");
+      else localStorage.removeItem("db_screen");
+    } catch(e){}
+    if (screenMode){
+      $("scrim").className = "scrim";
+      fsRequested = false;
+      requestWake();
+      if (full) tryFullscreen();
+    } else {
+      releaseWake();
+      tryExitFullscreen();
+    }
+    resize();
+  }
+  function enterDisplay(){ setScreenMode(true, true); }
+  function exitDisplay(){ setScreenMode(false, false); }
+
   // ----------------------------------------------------------------- controls
   Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function(btn){
     btn.addEventListener("click", function(){
@@ -1564,6 +1644,8 @@
     });
   });
   $("singBtn").addEventListener("click", function(e){ e.stopPropagation(); startSing(); });
+  $("screenBtn").addEventListener("click", enterDisplay);
+  $("displayBtn").addEventListener("click", enterDisplay);
   $("voiceBtn").addEventListener("click", function(){
     voiceOn = !voiceOn;
     $("voiceBtn").textContent = voiceOn ? "on" : "off";
@@ -1607,7 +1689,7 @@
     else if (k === "g") startSing();
     else if (k === "v") $("voiceBtn").click();
     else if (k === "s") send({t:"cmd", c: state.sleep ? "wake" : "sleep"});
-    else if (k === "escape") $("scrim").className = "scrim";
+    else if (k === "escape") { if (screenMode) exitDisplay(); else $("scrim").className = "scrim"; }
   });
 
   function refreshSettings(){
@@ -1638,6 +1720,18 @@
   }
 
   // boot
+  var startScreen = false;
+  try { startScreen = localStorage.getItem("db_screen") === "1"; } catch(e){}
+  if (/[?&](screen|display)=1/.test(location.search)) startScreen = true;
+  if (/[?&](screen|display)=0/.test(location.search)) {
+    startScreen = false;
+    try { localStorage.removeItem("db_screen"); } catch(e){}
+  }
+  screenMode = startScreen;
+  if (screenMode) document.body.classList.add("display");
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden && screenMode) requestWake();
+  });
   try {
     var s = localStorage.getItem("db_sound");
     if (s === "0") { soundOn = false; $("soundBtn").textContent = "off"; }

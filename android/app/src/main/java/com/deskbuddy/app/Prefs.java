@@ -36,6 +36,14 @@ final class Prefs {
         sp.edit().putBoolean("awake", v).apply();
     }
 
+    boolean display() {
+        return sp.getBoolean("display", false);
+    }
+
+    void setDisplay(boolean v) {
+        sp.edit().putBoolean("display", v).apply();
+    }
+
     boolean tutorialSeen() {
         return sp.getBoolean("seen", false);
     }
