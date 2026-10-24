@@ -8,6 +8,10 @@ The board is the brain. Your laptop's browser is the face. An old Android phone 
 this one runs 5.1.1 — can be a second face *and* donate its sensors: motion,
 light, sound, battery. Everything talks over your WiFi; nothing is in the cloud.
 
+The face is **EMO-inspired**: a dark glass screen, big glowing eyes, physical
+blinks and a small body that dances, sings and talks. Not affiliated with
+Living.AI — just a love letter to tiny desk robots.
+
 ![DeskBuddy in a browser](docs/screenshot-web.jpg)
 
 ## What it does
