@@ -61,6 +61,8 @@ public class FaceView extends View {
     private float blinkAmt = 0;
     private float eyeX = 0, eyeY = 0;
     private float squash = 1f, offX = 0, breathT = 0;
+    private float tilt = 0, tiltV = 0, ant = 0, antV = 0, antKick = 0;
+    private boolean forceBlink = false;
 
     private float touchX = -1, touchY = -1;
     private boolean touching = false;
@@ -90,8 +92,8 @@ public class FaceView extends View {
         MoodStyle s;
         s = new MoodStyle(); s.name = "happy"; s.mouth = 0; s.blush = .55f; s.glow = 0xFFFFB47A; s.body = 0xFFFFE6CF; moods[M_HAPPY] = s;
         s = new MoodStyle(); s.name = "curious"; s.eye = 1.1f; s.pupil = 1.18f; s.mouth = 6; s.blush = .3f; s.glow = 0xFF9EE7FF; s.body = 0xFFFFE9D6; moods[M_CURIOUS] = s;
-        s = new MoodStyle(); s.name = "sleepy"; s.eye = .4f; s.mouth = 2; s.blush = .35f; s.glow = 0xFF7FA8FF; s.body = 0xFFFFEDDD; moods[M_SLEEPY] = s;
-        s = new MoodStyle(); s.name = "sleeping"; s.eye = .1f; s.mouth = 2; s.blush = .3f; s.glow = 0xFF6F86FF; s.body = 0xFFFFEDDD; moods[M_SLEEPING] = s;
+        s = new MoodStyle(); s.name = "sleepy"; s.eye = .4f; s.mouth = 2; s.blush = .35f; s.glow = 0xFF7FA8FF; s.body = 0xFFEDEAF8; moods[M_SLEEPY] = s;
+        s = new MoodStyle(); s.name = "sleeping"; s.eye = .1f; s.mouth = 2; s.blush = .3f; s.glow = 0xFF6F86FF; s.body = 0xFFE9E8F6; moods[M_SLEEPING] = s;
         s = new MoodStyle(); s.name = "hungry"; s.eye = 1.05f; s.pupil = 1.05f; s.mouth = 1; s.blush = .4f; s.brow = 2; s.glow = 0xFFFFC078; s.body = 0xFFFFE3C6; moods[M_HUNGRY] = s;
         s = new MoodStyle(); s.name = "annoyed"; s.eye = .72f; s.mouth = 3; s.blush = .25f; s.brow = 1; s.glow = 0xFFFF8F6B; s.body = 0xFFFFDCC6; moods[M_ANNOYED] = s;
         s = new MoodStyle(); s.name = "dizzy"; s.mouth = 5; s.blush = .45f; s.glow = 0xFFC9A2FF; s.body = 0xFFFFE6CF; moods[M_DIZZY] = s;
@@ -128,10 +130,12 @@ public class FaceView extends View {
             squash = 1.05f; setTempMood("love", 1300); burst(0, 2);
         } else if ("poke".equals(event)) {
             squash = .9f; offX = (rnd.nextFloat() - .5f) * 14 * density;
+            antKick = 1f; forceBlink = true;
             setTempMood("startled", 800); burst(1, 4);
         } else if ("feed".equals(event)) {
             setTempMood("happy", 1600); burst(3, 9);
         } else if ("play".equals(event)) {
+            antKick = 1.4f;
             setTempMood("excited", 2400); burst(1, 14);
         } else if ("sleep".equals(event)) {
             setTempMood("sleeping", 3500);
@@ -185,19 +189,33 @@ public class FaceView extends View {
         }
         MoodStyle s = moods[styleId];
 
-        // blink
+        // blink, with an occasional double blink
+        if (forceBlink) { blinkAt = now; forceBlink = false; }
         float blink = 0;
         if (now > blinkAt && styleId != M_SLEEPING) {
             long p = now - blinkAt;
-            if (p < 150) blink = (float) Math.sin(p / 150.0 * Math.PI);
-            else blinkAt = now + (rnd.nextFloat() < .35f ? 180 + rnd.nextInt(120)
-                                                         : 2200 + rnd.nextInt(4200));
+            if (p < 140) blink = (float) Math.sin(p / 140.0 * Math.PI);
+            else blinkAt = now + (rnd.nextFloat() < .3f ? 200 + rnd.nextInt(120)
+                                                        : 2200 + rnd.nextInt(4200));
         }
-        if (styleId == M_SLEEPING) blink = 1f - s.eye;
 
         // spring back
         squash += (1f - squash) * Math.min(1f, dt * 12f);
         offX *= 0.86f;
+
+        // weighty head tilt + spring-loaded antenna
+        float targetTilt = touching
+                ? clamp((touchX - cx) / (getWidth() * .8f), -1, 1) * .045f
+                : (float) Math.sin(breathT * .29f) * .013f;
+        tiltV += (targetTilt - tilt) * .02f;
+        tiltV *= .88f;
+        tilt += tiltV;
+
+        if (antKick != 0) { antV += antKick * .028f; antKick = 0; }
+        float targetAnt = -tilt * 2.4f + (float) Math.sin(breathT * .9f) * .05f + antV * .2f;
+        antV += (targetAnt - ant) * .014f;
+        antV *= .93f;
+        ant += antV;
 
         // pupils follow the finger, or wander
         float tx, ty;
@@ -237,54 +255,95 @@ public class FaceView extends View {
         paint.setShader(null);
 
         c.save();
-        c.translate(cx + offX, cy + bounce * ry);
+        c.translate(cx + offX + (float) Math.sin(tilt) * 8 * density, cy + bounce * ry);
+        c.rotate((float) (tilt * 57.2958));
         c.scale(sc * scx * breath, sc * scy * breath);
 
-        // feet
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(shade(s.body, -30));
-        c.drawOval(-rx * .52f, ry * .9f, -rx * .12f, ry * 1.045f, paint);
-        c.drawOval(rx * .12f, ry * .9f, rx * .52f, ry * 1.045f, paint);
+        // feet, warm and slightly folded under the body
+        for (int ft = -1; ft <= 1; ft += 2) {
+            float fx = ft * rx * .31f;
+            float fy = ry * .965f;
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new LinearGradient(fx, fy - ry * .08f, fx, fy + ry * .08f,
+                    new int[]{shade(s.body, -14), shade(s.body, -32), shade(s.body, -46)},
+                    new float[]{0f, .55f, 1f}, Shader.TileMode.CLAMP));
+            c.drawOval(fx - rx * .2f, fy - ry * .075f, fx + rx * .2f, fy + ry * .075f, paint);
+            paint.setShader(null);
+            stroke.setColor(0x5970432C);
+            stroke.setStrokeWidth(1.2f * density);
+            path.reset();
+            path.addArc(fx - rx * .185f, fy - ry * .06f, fx + rx * .185f, fy + ry * .05f, 200, 140);
+            c.drawPath(path, stroke);
+        }
 
-        // antenna
-        stroke.setColor(shade(s.body, -24));
-        stroke.setStrokeWidth(Math.max(2.4f * density, rx * .022f));
+        // spring-loaded antenna
+        float baseY = -ry * .935f;
+        float tipX = (float) Math.sin(ant) * ry * .36f;
+        float tipY = baseY - (float) Math.cos(ant) * ry * .36f;
+        stroke.setColor(shade(s.body, -26));
+        stroke.setStrokeWidth(Math.max(2.2f * density, rx * .021f));
         path.reset();
-        path.moveTo(0, -ry * .94f);
-        path.quadTo(rx * .02f, -ry * 1.16f, rx * .09f, -ry * 1.26f);
+        path.moveTo(0, baseY);
+        path.quadTo((float) Math.sin(ant * .5f) * ry * .02f, baseY - ry * .2f, tipX, tipY);
         c.drawPath(path, stroke);
-        float tipX = rx * .09f, tipY = -ry * 1.29f;
-        paint.setShader(new RadialGradient(tipX, tipY, rx * .16f,
-                new int[]{withAlpha(glow, 200), withAlpha(glow, 0)},
-                new float[]{0f, 1f}, Shader.TileMode.CLAMP));
-        c.drawCircle(tipX, tipY, rx * .16f, paint);
-        paint.setShader(null);
-        paint.setColor(glow);
-        c.drawCircle(tipX, tipY, Math.max(2.5f * density, rx * .045f), paint);
 
-        // body
+        paint.setAlpha((int) (255 * (.7f + .3f * Math.sin(breathT * 2.2))));
+        paint.setShader(new RadialGradient(tipX, tipY, rx * .14f,
+                new int[]{withAlpha(glow, 230), withAlpha(glow, 90), withAlpha(glow, 0)},
+                new float[]{0f, .35f, 1f}, Shader.TileMode.CLAMP));
+        c.drawCircle(tipX, tipY, rx * .14f, paint);
+        paint.setShader(null);
+        paint.setAlpha(255);
+        paint.setColor(glow);
+        c.drawCircle(tipX, tipY, Math.max(2.2f * density, rx * .042f), paint);
+        paint.setColor(0xCCFFFFFF);
+        c.drawCircle(tipX - rx * .012f, tipY - rx * .014f, Math.max(.8f * density, rx * .017f), paint);
+
+        // body, lit from the upper left
         bodyPath(rx, ry);
         paint.setShader(new LinearGradient(0, -ry, 0, ry * 1.04f,
-                new int[]{0xFFFFF8EE, s.body, shade(s.body, -10), shade(s.body, -26)},
-                new float[]{0f, .38f, .82f, 1f}, Shader.TileMode.CLAMP));
+                new int[]{shade(s.body, 7), shade(s.body, 3), shade(s.body, -8), shade(s.body, -24)},
+                new float[]{0f, .32f, .76f, 1f}, Shader.TileMode.CLAMP));
         c.drawPath(path, paint);
         paint.setShader(null);
 
-        // inner shading
         c.save();
         c.clipPath(path);
-        paint.setShader(new RadialGradient(-rx * .32f, -ry * .46f, rx * 1.6f,
-                new int[]{0x8CFFFFFF, 0x00FFFFFF, 0x38563022},
-                new float[]{0f, .42f, 1f}, Shader.TileMode.CLAMP));
-        c.drawRect(-rx * 1.2f, -ry * 1.2f, rx * 1.2f, ry * 1.2f, paint);
+
+        // key light
+        paint.setShader(new RadialGradient(-rx * .40f, -ry * .52f, rx * 1.7f,
+                new int[]{0x66FFFFFF, 0x14FFFFFF, 0x00FFFFFF},
+                new float[]{0f, .38f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(-rx * 1.3f, -ry * 1.3f, rx * 1.3f, ry * 1.3f, paint);
         paint.setShader(null);
-        paint.setColor(0x66FFFFFF);
-        c.drawOval(-rx * .66f, -ry * .66f, -rx * .26f, -ry * .46f, paint);
+
+        // mood bounce from the desk
+        paint.setShader(new LinearGradient(0, ry * .12f, 0, ry * 1.02f,
+                new int[]{withAlpha(glow, 0), withAlpha(glow, 70)},
+                new float[]{0f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(-rx, ry * .12f, rx, ry * 1.02f, paint);
+        paint.setShader(null);
+
+        // contact occlusion
+        paint.setShader(new RadialGradient(0, ry * .98f, rx * .95f,
+                new int[]{0x47603426, 0x1A603426, 0x00603426},
+                new float[]{0f, .55f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(-rx, -ry, rx, ry, paint);
+        paint.setShader(null);
+
+        // fresnel rim
+        stroke.setShader(new LinearGradient(-rx, -ry, rx * .6f, ry,
+                new int[]{0x8CFFFFFF, 0x14FFFFFF, withAlpha(glow, 60)},
+                new float[]{0f, .45f, 1f}, Shader.TileMode.CLAMP));
+        stroke.setStrokeWidth(rx * .045f);
+        bodyPath(rx * .985f, ry * .985f);
+        c.drawPath(path, stroke);
+        stroke.setShader(null);
         c.restore();
 
         // contour
-        stroke.setColor(0x29543224);
-        stroke.setStrokeWidth(1.6f * density);
+        stroke.setColor(0x24543224);
+        stroke.setStrokeWidth(1.4f * density);
         bodyPath(rx, ry);
         c.drawPath(path, stroke);
 
@@ -306,23 +365,23 @@ public class FaceView extends View {
         float eyeY = -ry * .1f;
         float eyeDX = rx * .355f;
         float er = rx * .215f;
-        float eyeScale = s.eye * (1 - blink) + .06f;
-        if (eyeScale < .06f) eyeScale = .06f;
+        float open = s.eye * (1 - blink);
+        if (styleId == M_SLEEPING) open = 0;
+        if (styleId == M_LOVE) open *= .82f;
 
         for (int side = -1; side <= 1; side += 2) {
             float ex = side * eyeDX;
             c.save();
             c.translate(ex, eyeY);
-            c.scale(1f, eyeScale);
 
-            if (blink > .92f || styleId == M_SLEEPING) {
-                stroke.setColor(0xFF2C2537);
-                stroke.setStrokeWidth(Math.max(2.5f * density, rx * .028f));
-                path.reset();
-                path.moveTo(-er * .82f, 0);
-                path.quadTo(0, er * .34f, er * .82f, 0);
-                c.drawPath(path, stroke);
-            } else if (styleId == M_DIZZY) {
+            // socket shadow seats the eye in the face
+            paint.setShader(new RadialGradient(0, 0, er * 1.55f,
+                    new int[]{0x1A6E3E2E, 0x006E3E2E},
+                    new float[]{.25f, 1f}, Shader.TileMode.CLAMP));
+            c.drawCircle(0, 0, er * 1.55f, paint);
+            paint.setShader(null);
+
+            if (styleId == M_DIZZY) {
                 stroke.setColor(0xFF2C2537);
                 stroke.setStrokeWidth(Math.max(2f, rx * .018f));
                 path.reset();
@@ -334,37 +393,88 @@ public class FaceView extends View {
                     if (i == 0) path.moveTo(px, py); else path.lineTo(px, py);
                 }
                 c.drawPath(path, stroke);
+
             } else if (styleId == M_LOVE) {
                 c.save();
                 c.scale(er * 1.15f / 16f, er * 1.15f / 16f);
                 drawHeart(c, 0, 0, 16f, 0xFFE2556F);
                 c.restore();
-            } else {
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(0xFF221D2E);
-                c.drawOval(-er * .9f, -er, er * .9f, er, paint);
 
-                float pr = er * .5f * s.pupil;
+            } else if (open < .07f) {
+                stroke.setColor(0xFF3A2C3C);
+                stroke.setStrokeWidth(Math.max(2.5f * density, er * .13f));
+                path.reset();
+                path.moveTo(-er * .8f, 0);
+                path.quadTo(0, er * .30f, er * .8f, 0);
+                c.drawPath(path, stroke);
+                stroke.setColor(0x2E8C5A46);
+                stroke.setStrokeWidth(1.4f * density);
+                path.reset();
+                path.moveTo(-er * .7f, er * .16f);
+                path.quadTo(0, er * .42f, er * .7f, er * .16f);
+                c.drawPath(path, stroke);
+
+            } else {
+                // glossy iris
                 c.save();
-                c.translate(eyeX * er * .42f, eyeY * er * .38f);
-                paint.setColor(0xFF0B0D18);
-                c.drawCircle(0, 0, pr, paint);
+                path.reset();
+                path.addOval(-er * .9f, -er * 1.02f, er * .9f, er * 1.02f, Path.Direction.CW);
+                c.clipPath(path);
+
+                paint.setShader(new RadialGradient(eyeX * er * .34f, eyeY * er * .30f, er * 1.15f,
+                        new int[]{0xFF4E4074, 0xFF251F3A, 0xFF0D0E1B},
+                        new float[]{0f, .55f, 1f}, Shader.TileMode.CLAMP));
+                c.drawRect(-er, -er * 1.1f, er, er * 1.1f, paint);
+                paint.setShader(null);
+
+                float px = eyeX * er * .34f, py = eyeY * er * .30f;
+                float pr = er * .46f * s.pupil;
+                paint.setColor(0xFF07080E);
+                c.drawCircle(px, py, pr, paint);
+
+                stroke.setColor(0x33A08CCD);
+                stroke.setStrokeWidth(1.2f * density);
+                c.drawCircle(px, py, pr * 1.12f, stroke);
+
                 paint.setColor(0xF2FFFFFF);
-                c.drawCircle(-pr * .42f, -pr * .52f, pr * .44f, paint);
-                paint.setColor(0x80FFFFFF);
-                c.drawCircle(pr * .36f, pr * .44f, pr * .18f, paint);
+                c.drawOval(-er * .60f, -er * .63f, -er * .08f, -er * .21f, paint);
+                paint.setColor(0x8CFFFFFF);
+                c.drawCircle(er * .30f, er * .36f, er * .10f, paint);
+
+                stroke.setColor(0x21FFFFFF);
+                stroke.setStrokeWidth(1.4f * density);
+                path.reset();
+                path.addArc(-er * .82f, -er * .82f, er * .82f, er * .82f, 35, 100);
+                c.drawPath(path, stroke);
+                c.restore();
+
+                // physical upper lid, clipped to the eye
+                float lidY = -er * 1.12f + (1 - open) * er * 2.24f;
+                c.save();
+                path.reset();
+                path.addOval(-er * .92f, -er * 1.04f, er * .92f, er * 1.04f, Path.Direction.CW);
+                c.clipPath(path);
+
+                path.reset();
+                path.moveTo(-er * 1.2f, -er * 1.4f);
+                path.lineTo(er * 1.2f, -er * 1.4f);
+                path.lineTo(er * 1.2f, lidY);
+                path.quadTo(0, lidY + er * .20f, -er * 1.2f, lidY);
+                path.close();
+                paint.setShader(new LinearGradient(0, -er * 1.1f, 0, lidY + er * .2f,
+                        shade(s.body, 5), shade(s.body, -4), Shader.TileMode.CLAMP));
+                c.drawPath(path, paint);
+                paint.setShader(null);
+
+                stroke.setColor(0x42784A38);
+                stroke.setStrokeWidth(1.5f * density);
+                path.reset();
+                path.moveTo(-er * 1.2f, lidY);
+                path.quadTo(0, lidY + er * .20f, er * 1.2f, lidY);
+                c.drawPath(path, stroke);
                 c.restore();
             }
             c.restore();
-
-            if (eyeScale < .72f && styleId != M_SLEEPING) {
-                stroke.setColor(0x2E7A584A);
-                stroke.setStrokeWidth(2f * density);
-                path.reset();
-                path.moveTo(ex - er * .9f, eyeY - er * .62f);
-                path.quadTo(ex, eyeY - er * .92f, ex + er * .9f, eyeY - er * .62f);
-                c.drawPath(path, stroke);
-            }
         }
 
         // brows
@@ -423,11 +533,21 @@ public class FaceView extends View {
         paint.setStyle(Paint.Style.FILL);
 
         if (style == 1) {              // open, happy shout
-            float mw = w * .175f, mh = h * .145f * (1 + (float) Math.sin(breathT * 7) * .06f);
-            paint.setColor(0xFF3A2A38);
+            float mw = w * .165f, mh = h * .135f * (1 + (float) Math.sin(breathT * 6.5f) * .03f);
+            paint.setShader(new LinearGradient(0, -mh, 0, mh,
+                    new int[]{0xFF241A24, 0xFF3A2430, 0xFF4A2A34},
+                    new float[]{0f, .6f, 1f}, Shader.TileMode.CLAMP));
             c.drawOval(-mw, -mh, mw, mh, paint);
-            paint.setColor(0xD9FF9DA6);
+            paint.setShader(null);
+            paint.setColor(0xFFF08296);
             c.drawOval(-mw * .62f, mh * .02f, mw * .62f, mh * .86f, paint);
+            paint.setColor(0x38FFFFFF);
+            c.drawOval(-mw * .63f, -mh * .53f, -mw * .07f, -mh * .17f, paint);
+            stroke.setColor(0x80503240);
+            stroke.setStrokeWidth(1.4f * density);
+            path.reset();
+            path.addOval(-mw, -mh, mw, mh, Path.Direction.CW);
+            c.drawPath(path, stroke);
         } else if (style == 0) {        // smile
             path.reset();
             path.moveTo(-w * .195f, -h * .025f);
