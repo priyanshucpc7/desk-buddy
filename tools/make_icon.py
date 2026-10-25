@@ -34,7 +34,7 @@ def draw_icon(px: int) -> Image.Image:
     d = ImageDraw.Draw(img)
 
     # navy tile
-    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=s * .235, fill=(13, 17, 29, 255))
+    d.rounded_rectangle([0, 0, s - 1, s - 1], radius=s * .235, fill=(0, 0, 0, 255))
 
     # cyan ambient glow behind the robot
     img.alpha_composite(glow_ellipse(s, [s * .16, s * .18, s * .84, s * .86],
@@ -52,18 +52,19 @@ def draw_icon(px: int) -> Image.Image:
         fx = cx + side * hw * .38 - foot_w / 2
         fy = cy + hh * .78
         d.rounded_rectangle([fx, fy, fx + foot_w, fy + foot_h],
-                            radius=foot_w * .42, fill=(221, 229, 238, 255))
+                            radius=foot_w * .42, fill=(27, 38, 44, 255),
+                            outline=(94, 231, 255, 110), width=max(1, int(s * .004)))
         d.rounded_rectangle([fx, fy + foot_h * .55, fx + foot_w, fy + foot_h],
-                            radius=foot_w * .3, fill=(199, 209, 221, 255))
+                            radius=foot_w * .3, fill=(19, 28, 33, 255))
 
     # shell gradient
     grad = Image.new("RGB", (1, s))
     for y in range(s):
         t = y / float(s)
         if t < .55:
-            c = lerp((255, 255, 255), (238, 243, 249), min(1, t / .55))
+            c = lerp((58, 71, 80), (27, 38, 44), min(1, t / .55))
         else:
-            c = lerp((238, 243, 249), (190, 202, 216), (t - .55) / .45)
+            c = lerp((27, 38, 44), (18, 26, 31), (t - .55) / .45)
         grad.putpixel((0, y), c)
     grad = grad.resize((s, s))
 
@@ -74,7 +75,7 @@ def draw_icon(px: int) -> Image.Image:
 
     # shell outline
     d.rounded_rectangle([cx - hw, cy - hh, cx + hw, cy + hh],
-                        radius=hw * .28, outline=(120, 134, 152, 150),
+                        radius=hw * .28, outline=(94, 231, 255, 120),
                         width=max(1, int(s * .006)))
 
     # screen bezel + glass
@@ -117,7 +118,8 @@ def draw_icon(px: int) -> Image.Image:
     nub_w, nub_h = hw * .22, hw * .10
     d.rounded_rectangle([cx - nub_w / 2, cy - hh - nub_h * .8,
                          cx + nub_w / 2, cy - hh + nub_h * .2],
-                        radius=nub_h * .45, fill=(244, 248, 252, 255))
+                        radius=nub_h * .45, fill=(52, 66, 76, 255),
+                        outline=(94, 231, 255, 110), width=max(1, int(s * .004)))
     img.alpha_composite(glow_ellipse(s, [cx - hw * .16, cy - hh - hw * .22,
                                          cx + hw * .16, cy - hh + hw * .10],
                                      (121, 230, 255), 16, 120))

@@ -2,7 +2,9 @@
 
 DeskBuddy can present itself as a bare face — no header, no vitals, no buttons —
 so a phone or a small screen looks like a dedicated desk robot display. It is
-the same renderer and the same moods as the full page, just without the shell.
+the same renderer and the same moods as the full page, just without the page
+chrome. The cyan-on-black palette is deliberately OLED-friendly: true black
+background, a graphite shell, and only the eyes, mouth and edge light glow.
 
 ## Browser / phone
 
@@ -11,7 +13,11 @@ the same renderer and the same moods as the full page, just without the shell.
   hides every control and keeps the screen awake when the browser allows it.
 - **Exit:** triple-tap the top-left corner, or press `Esc` on a keyboard.
   The mode is remembered when entered from the button; `?screen=1` is one-shot.
-- Keyboard shortcuts still work: `F` feed, `P` dance, `G` sing, `S` sleep/wake.
+- Keyboard shortcuts still work: `F` feed, `P` dance, `G` sing, `J` game,
+  `S` sleep/wake, `L` voice, `T` timer.
+- On a phone the browser may block the microphone over plain HTTP. Use the
+  Android app's **Talk** button (or long-press the face) for voice in display
+  mode, or the typed command box in Settings.
 
 The face scales from the viewport, so the same page works at any size:
 
@@ -27,7 +33,9 @@ The face scales from the viewport, so the same page works at any size:
 Settings (≡) → **Display mode (face only)**, or press the Back button to leave.
 It hides the status bar and buttons, enlarges the face, keeps the screen awake
 according to the existing setting, and still streams sensors. A triple-tap in
-the top-left corner also exits.
+the top-left corner also exits. Tap **Talk** before entering display mode, or
+long-press the face at any time; the phone's own recognizer and TTS handle the
+command, so voice still works without a web page.
 
 ## Buying a real OLED
 

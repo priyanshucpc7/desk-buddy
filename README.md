@@ -8,25 +8,35 @@ The board is the brain. Your laptop's browser is the face. An old Android phone 
 this one runs 5.1.1 — can be a second face *and* donate its sensors: motion,
 light, sound, battery. Everything talks over your WiFi; nothing is in the cloud.
 
-The face is **EMO-inspired**: a dark glass screen, big glowing eyes, physical
-blinks and a small body that dances, sings and talks. Not affiliated with
+The face is **EMO-inspired** and dressed in a **cyan-on-black OLED theme**: a
+matte graphite shell, a dark glass screen, big glowing eyes, physical blinks and
+a small body that dances, sings, jokes, plays and talks. Not affiliated with
 Living.AI — just a love letter to tiny desk robots.
 
 ![DeskBuddy in a browser](docs/screenshot-web.jpg)
 
 ## What it does
 
-- **EMO-inspired glass face**: a dark screen with glowing eyes, physical blinks,
-  saccades, head tilt and a springy little body.
-- Emotions drawn with the eyes: happy arcs, hearts, stars, spirals, angry brows,
-  half-lidded boredom, sleepy lines, wide-eyed startles.
+- **EMO-inspired OLED face**: cyan-on-black glass screen, graphite shell, glowing
+  eyes, scanlines, physical blinks, saccades, head tilt and a springy little body.
+- **20 expressions** drawn with the eyes and brows: happy, curious, sleepy,
+  sleeping, hungry, annoyed, dizzy, love, startled, bored, excited, sad, scared,
+  shy, proud, confused, laughing, crying (with tears), thinking (with thought
+  dots), wink.
 - Moods driven by needs: **happiness, energy, food, bond** (persisted in NVS).
+  Little idle quirks (wink / think / confuse / proud / shy) keep it alive.
 - Reacts to touch: tap = poke (it gets startled, then annoyed if you spam it),
   drag = pet (hearts, blush, voice lines).
 - **Dance** makes it play a beat and bounce; **Sing** gives it a glowing
   equalizer mouth and a little melody.
-- **Voice**: short spoken lines (toggle in Settings) for pets, snacks, dance,
-  sleep and more, plus WebAudio chirps.
+- **Voice commands** (browser: Chrome/Edge, optional mic button or `L`):
+  dance, sing, joke, feed, sleep, wake, love you, how are you, timer 5 minutes,
+  play a game, set display mode, and emotions (“be shy”, “wink”, “think”…).
+  Short spoken lines and WebAudio chirps come free.
+- **Catch the Sparks** mini-game, a **timer/alarm**, and a small offline chat
+  (jokes, time, name, mood, capabilities).
+- **Native Android voice**: tap **Talk** (or long-press the face, even in display
+  mode) and say a command; it uses the phone's own recognizer and TTS.
 - Reacts to the phone's senses: shake it → dizzy; cover the light sensor →
   sleepy; a loud room → startled; feeding and playing change its mood.
 - Remembers its name, personality and level across reboots.
@@ -34,7 +44,8 @@ Living.AI — just a love letter to tiny desk robots.
   served straight from the ESP32.
 - **Display mode**: one tap hides all controls and fills the screen with the face
   only — perfect for a phone on a stand, and the same layout scales down to
-  240×240, 128×64 or any small panel you buy later. See [docs/DISPLAY.md](docs/DISPLAY.md).
+  240×240, 128×64 or any small panel you buy later. The cyan-on-black theme was
+  designed for this. See [docs/DISPLAY.md](docs/DISPLAY.md).
 - Android app renders the same buddy full-screen, has a face-only display mode,
   and streams sensor data back.
 
@@ -120,11 +131,16 @@ Keep the app in the foreground; the screen stays awake by default.
 
 - **Click / tap** the buddy: poke.
 - **Drag across it**: pet.
-- **Feed / Dance / Sing / Sleep** buttons (or keys `F`, `P`, `G`, `S`;
-  `V` toggles the voice).
+- **Feed / Dance / Sing / Game / Sleep** buttons (or keys `F`, `P`, `G`, `J`, `S`).
+- **Mic** in the header (or `L`) starts browser voice commands; `V` toggles
+  spoken replies. `T` starts a 5-minute timer. Type a command in Settings if
+  the browser blocks the microphone.
 - **Display mode** button (monitor icon) or open `/?screen=1` — face only,
   no chrome. Triple-tap the top-left or press `Esc` to exit.
-- Settings (⚙) for name, sound, WiFi, reset.
+- Settings (⚙) for name, sound, voice, timer, commands, WiFi, reset.
+- **Chrome may require HTTPS for browser mic access.** The page is plain HTTP
+  on the LAN, so if the mic is blocked use the typed command box or the Android
+  app's Talk button. The native app has no secure-context restriction.
 - Mood, stats and sensor HUD update live from the ESP32.
 
 Serial commands (`115200`): `status`, `feed`, `play`, `sleep`, `poke`, `pet`,

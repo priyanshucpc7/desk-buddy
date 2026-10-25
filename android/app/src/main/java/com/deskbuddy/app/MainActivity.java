@@ -2,7 +2,9 @@ package com.deskbuddy.app;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -15,6 +17,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
+import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -32,10 +36,14 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.net.InetAddress;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The phone half of DeskBuddy: full-screen face + sensor pack.
@@ -48,6 +56,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
     private static final int PORT = 81;
     private static final int REQ_MIC = 7;
+    private static final int REQ_VOICE = 8;
 
     private FaceView face;
     private Link link;
@@ -67,6 +76,10 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
     private View topBar, bottomBar;
     private boolean displayMode = false;
     private TextView panelHint;
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private boolean pendingVoice = false;
+    private Runnable timerAlarm;
 
     private NsdManager nsd;
     private NsdManager.DiscoveryListener discovery;
@@ -87,6 +100,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         buildUi();
         immersive();
+        initTts();
 
         String host = prefs.host();
         if (host != null && host.length() > 0) {
@@ -133,6 +147,8 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         stopDiscovery();
         if (link != null) link.stop();
         stopSensors();
+        if (timerAlarm != null) ui.removeCallbacks(timerAlarm);
+        if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
     }
 
     @Override public void onWindowFocusChanged(boolean focused) {
@@ -158,7 +174,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
     private void buildUi() {
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF090C15);
+        root.setBackgroundColor(0xFF000000);
 
         face = new FaceView(this);
         face.setListener(this);
@@ -175,7 +191,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         statusDot = new View(this);
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);
-        dot.setColor(0xFF4C5568);
+        dot.setColor(0xFF24424C);
         statusDot.setBackground(dot);
         LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams((int) dp(8), (int) dp(8));
         dotLp.rightMargin = (int) dp(8);
@@ -183,7 +199,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         statusText = new TextView(this);
         statusText.setText("connecting…");
-        statusText.setTextColor(0xFF8892A6);
+        statusText.setTextColor(0xFF7FA6B0);
         statusText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         statusText.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         top.addView(statusText, new LinearLayout.LayoutParams(0,
@@ -191,7 +207,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         TextView menu = new TextView(this);
         menu.setText("≡");
-        menu.setTextColor(0xFFF4EEE7);
+        menu.setTextColor(0xFFEAFDFF);
         menu.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
         menu.setGravity(Gravity.CENTER);
         menu.setPadding((int) dp(12), 0, (int) dp(12), 0);
@@ -208,14 +224,15 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         // speech bubble
         speech = new TextView(this);
-        speech.setTextColor(0xFF171A24);
+        speech.setTextColor(0xFFEAFDFF);
         speech.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         speech.setGravity(Gravity.CENTER);
         speech.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         speech.setPadding((int) dp(16), (int) dp(10), (int) dp(16), (int) dp(10));
         GradientDrawable bubble = new GradientDrawable();
         bubble.setCornerRadius(dp(15));
-        bubble.setColor(0xFFF7F1EA);
+        bubble.setColor(0xE6071217);
+        bubble.setStroke((int) dp(1), 0x385EE7FF);
         speech.setBackground(bubble);
         speech.setVisibility(View.INVISIBLE);
         speech.setAlpha(0f);
@@ -232,7 +249,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         bottom.setGravity(Gravity.CENTER_HORIZONTAL);
 
         statsText = new TextView(this);
-        statsText.setTextColor(0xFF98A1B6);
+        statsText.setTextColor(0xFF7FA6B0);
         statsText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         statsText.setGravity(Gravity.CENTER);
         bottom.addView(statsText);
@@ -244,15 +261,18 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         rowLp.topMargin = (int) dp(10);
 
-        row.addView(actionButton("Feed", 0xFFFFC9A6, new Runnable() {
+        row.addView(actionButton("Feed", 0xFF9FEFC9, new Runnable() {
             @Override public void run() { command("feed"); }
         }), buttonLp());
-        row.addView(actionButton("Play", 0xFFD6C8FF, new Runnable() {
+        row.addView(actionButton("Play", 0xFF8FE3FF, new Runnable() {
             @Override public void run() { command("play"); }
         }), buttonLp());
-        row.addView(actionButton("Sleep", 0xFFB7E7FF, new Runnable() {
+        row.addView(actionButton("Sleep", 0xFFB7D6FF, new Runnable() {
             @Override public void run() { command(sleeping ? "wake" : "sleep"); }
         }), buttonLp());
+        row.addView(actionButton("Talk", 0xFF7FE7FF, new Runnable() {
+            @Override public void run() { startVoice(); }
+        }, false), buttonLp());
         bottom.addView(row, rowLp);
 
         FrameLayout.LayoutParams botLp = new FrameLayout.LayoutParams(
@@ -262,7 +282,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         // connection / settings panel
         panel = new FrameLayout(this);
-        panel.setBackgroundColor(0xCC05070D);
+        panel.setBackgroundColor(0xE603080B);
         panel.setVisibility(View.GONE);
         panel.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { /* swallow */ }
@@ -285,6 +305,11 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
     }
 
     private TextView actionButton(String label, int color, final Runnable action) {
+        return actionButton(label, color, action, true);
+    }
+
+    private TextView actionButton(String label, int color, final Runnable action,
+                                  final boolean needsConnection) {
         TextView b = new TextView(this);
         b.setText(label);
         b.setTextColor(color);
@@ -294,12 +319,12 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         b.setPadding((int) dp(10), (int) dp(12), (int) dp(10), (int) dp(12));
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(13));
-        bg.setColor(0x14FFFFFF);
-        bg.setStroke((int) dp(1), 0x22FFFFFF);
+        bg.setColor(0x0F5EE7FF);
+        bg.setStroke((int) dp(1), 0x335EE7FF);
         b.setBackground(bg);
         b.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                if (!connected) { openPanel(true); return; }
+                if (needsConnection && !connected) { openPanel(true); return; }
                 action.run();
             }
         });
@@ -315,8 +340,8 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         card.setPadding((int) dp(22), (int) dp(22), (int) dp(22), (int) dp(22));
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(22));
-        bg.setColor(0xFF141A2B);
-        bg.setStroke((int) dp(1), 0x22FFFFFF);
+        bg.setColor(0xFF050B0E);
+        bg.setStroke((int) dp(1), 0x335EE7FF);
         card.setBackground(bg);
 
         FrameLayout.LayoutParams margins = new FrameLayout.LayoutParams(
@@ -328,7 +353,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         TextView title = new TextView(this);
         title.setText("Connect to DeskBuddy");
-        title.setTextColor(0xFFF4EEE7);
+        title.setTextColor(0xFFEAFDFF);
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         card.addView(title);
@@ -336,7 +361,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         TextView sub = new TextView(this);
         sub.setText("Make sure the phone and the ESP32 are on the same WiFi, then enter the buddy's address. "
                 + "No screen on the board? Join its hotspot DeskBuddy-XXXX and use 192.168.4.1.");
-        sub.setTextColor(0xFF8892A6);
+        sub.setTextColor(0xFF7FA6B0);
         sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         sub.setLineSpacing(dp(3), 1f);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
@@ -347,16 +372,16 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         hostInput = new EditText(this);
         hostInput.setHint("192.168.1.42 or deskbuddy.local");
-        hostInput.setHintTextColor(0xFF5C6579);
-        hostInput.setTextColor(0xFFF4EEE7);
+        hostInput.setHintTextColor(0xFF4C6B75);
+        hostInput.setTextColor(0xFFEAFDFF);
         hostInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         hostInput.setSingleLine(true);
         hostInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         hostInput.setImeOptions(EditorInfo.IME_ACTION_GO);
         GradientDrawable inputBg = new GradientDrawable();
         inputBg.setCornerRadius(dp(11));
-        inputBg.setColor(0x0DFFFFFF);
-        inputBg.setStroke((int) dp(1), 0x1AFFFFFF);
+        inputBg.setColor(0x0F5EE7FF);
+        inputBg.setStroke((int) dp(1), 0x2E5EE7FF);
         hostInput.setBackground(inputBg);
         hostInput.setPadding((int) dp(12), (int) dp(10), (int) dp(12), (int) dp(10));
         card.addView(hostInput);
@@ -391,7 +416,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         card.addView(foundList, flLp);
 
         panelHint = new TextView(this);
-        panelHint.setTextColor(0xFF8892A6);
+        panelHint.setTextColor(0xFF7FA6B0);
         panelHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
         LinearLayout.LayoutParams phLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -400,7 +425,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         micBox = new CheckBox(this);
         micBox.setText("Stream microphone (reactions to noise)");
-        micBox.setTextColor(0xFFC9D1DF);
+        micBox.setTextColor(0xFFBFEFF7);
         micBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         micBox.setChecked(prefs.mic());
         micBox.setPadding(0, (int) dp(6), 0, 0);
@@ -420,7 +445,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         awakeBox = new CheckBox(this);
         awakeBox.setText("Keep screen awake");
-        awakeBox.setTextColor(0xFFC9D1DF);
+        awakeBox.setTextColor(0xFFBFEFF7);
         awakeBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         awakeBox.setChecked(prefs.awake());
         awakeBox.setOnClickListener(new View.OnClickListener() {
@@ -437,7 +462,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         displayBox = new CheckBox(this);
         displayBox.setText("Display mode (face only)");
-        displayBox.setTextColor(0xFFC9D1DF);
+        displayBox.setTextColor(0xFFBFEFF7);
         displayBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         displayBox.setChecked(displayMode);
         displayBox.setOnClickListener(new View.OnClickListener() {
@@ -452,8 +477,9 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
         TextView dispHint = new TextView(this);
         dispHint.setText("Hides every control, like a small OLED screen. "
-                + "Triple-tap the top-left corner or press Back to leave.");
-        dispHint.setTextColor(0xFF5C6579);
+                + "Triple-tap the top-left corner or press Back to leave. "
+                + "Long-press the face to talk.");
+        dispHint.setTextColor(0xFF4C6B75);
         dispHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
         dispHint.setLineSpacing(dp(2), 1f);
         card.addView(dispHint);
@@ -468,9 +494,10 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         card.addView(close, closeLp);
 
         TextView tip = new TextView(this);
-        tip.setText("Desktop face: open http://deskbuddy.local in a browser. "
-                + "This app is the sensor pack and a second face.");
-        tip.setTextColor(0xFF5C6579);
+        tip.setText("Tap Talk (or long-press the face) and say: dance, sing, joke, "
+                + "timer 5 minutes, feed, sleep, love you.\n\n"
+                + "Desktop face: open http://deskbuddy.local in a browser.");
+        tip.setTextColor(0xFF4C6B75);
         tip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
         tip.setLineSpacing(dp(2), 1f);
         LinearLayout.LayoutParams tipLp = new LinearLayout.LayoutParams(
@@ -491,15 +518,15 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
     private TextView plainButton(String label, boolean primary) {
         TextView b = new TextView(this);
         b.setText(label);
-        b.setTextColor(primary ? 0xFF231A0F : 0xFFF4EEE7);
+        b.setTextColor(primary ? 0xFF031014 : 0xFFEAFDFF);
         b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         b.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         b.setGravity(Gravity.CENTER);
         b.setPadding((int) dp(12), (int) dp(11), (int) dp(12), (int) dp(11));
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(11));
-        bg.setColor(primary ? 0xFFFFD479 : 0x14FFFFFF);
-        if (!primary) bg.setStroke((int) dp(1), 0x22FFFFFF);
+        bg.setColor(primary ? 0xFF8DF3FF : 0x0F5EE7FF);
+        if (!primary) bg.setStroke((int) dp(1), 0x335EE7FF);
         b.setBackground(bg);
         return b;
     }
@@ -559,12 +586,24 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         super.onRequestPermissionsResult(req, perms, results);
         if (req == REQ_MIC) {
             boolean granted = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
-            if (granted && connected) startSensors();
+            if (granted) {
+                if (pendingVoice) { pendingVoice = false; startVoice(); }
+                else if (connected) startSensors();
+            }
             if (!granted) {
+                pendingVoice = false;
                 micBox.setChecked(false);
                 prefs.setMic(false);
                 panelHint.setText("Microphone permission denied — other sensors still work.");
             }
+        }
+    }
+
+    @Override protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == REQ_VOICE && res == RESULT_OK && data != null) {
+            ArrayList<String> results = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if (results != null && !results.isEmpty()) handleVoiceCommand(results.get(0));
         }
     }
 
@@ -653,7 +692,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         panelHint.setText(found.size() + " buddy found — tap to connect.");
         TextView row = new TextView(this);
         row.setText(ip);
-        row.setTextColor(0xFFFFC9A6);
+        row.setTextColor(0xFF7CFFD2);
         row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         row.setPadding((int) dp(10), (int) dp(9), (int) dp(10), (int) dp(9));
         GradientDrawable bg = new GradientDrawable();
@@ -677,7 +716,7 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         connected = up;
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);
-        dot.setColor(up ? 0xFF8FE3C0 : 0xFFFF9C86);
+        dot.setColor(up ? 0xFF7CFFD2 : 0xFFFF6B8A);
         statusDot.setBackground(dot);
 
         if (up) {
@@ -770,6 +809,211 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         }
     };
 
+    // ------------------------------------------------------------------ voice
+    private void initTts() {
+        try {
+            tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+                @Override public void onInit(int status) {
+                    if (status == TextToSpeech.SUCCESS) {
+                        int r = tts.setLanguage(Locale.US);
+                        tts.setPitch(1.35f);
+                        tts.setSpeechRate(1.02f);
+                        ttsReady = r != TextToSpeech.LANG_MISSING_DATA
+                                && r != TextToSpeech.LANG_NOT_SUPPORTED;
+                    }
+                }
+            });
+        } catch (Exception ignored) {
+            tts = null;
+        }
+    }
+
+    private void say(String message) {
+        if (message == null || message.length() == 0) return;
+        showSpeech(message);
+        if (ttsReady && tts != null) {
+            try {
+                tts.stop();
+                tts.speak(message, TextToSpeech.QUEUE_FLUSH, null);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void startVoice() {
+        if (Build.VERSION.SDK_INT >= 23 && !micGranted()) {
+            pendingVoice = true;
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC);
+            return;
+        }
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US");
+        i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+        i.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                "Say: dance, sing, joke, timer 5 minutes, feed, sleep, love you");
+        try {
+            startActivityForResult(i, REQ_VOICE);
+        } catch (ActivityNotFoundException e) {
+            say("No voice recognizer found. Install the Google app to talk to me.");
+        } catch (Exception e) {
+            say("I couldn't start listening.");
+        }
+    }
+
+    private void handleVoiceCommand(String raw) {
+        if (raw == null) return;
+        String t = raw.toLowerCase(Locale.US).replaceAll("[^a-z0-9 ]", " ")
+                .replaceAll("\\s+", " ").trim();
+        if (t.length() == 0) return;
+
+        if (t.matches(".*\\b(cancel|stop|clear)\\b.*\\btimer\\b.*")) {
+            if (timerAlarm != null) ui.removeCallbacks(timerAlarm);
+            timerAlarm = null;
+            say("Timer canceled.");
+            return;
+        }
+        if (t.matches(".*\\b(stop|quiet|hush|silence)\\b.*")) {
+            if (tts != null) tts.stop();
+            return;
+        }
+        if (t.matches(".*\\b(dance|party|play)\\b.*")) {
+            face.setTempMood("excited", 2600);
+            command("play");
+            say("Let's dance!");
+            return;
+        }
+        if (t.matches(".*\\b(sing|song)\\b.*")) {
+            face.setTempMood("laughing", 3000);
+            say("La la la! I'm a happy little robot.");
+            return;
+        }
+        if (t.matches(".*\\b(timer|remind me)\\b.*")) {
+            if (startVoiceTimer(t)) return;
+            say("How long should the timer be?");
+            return;
+        }
+        if (t.matches(".*\\b(what|tell|show)\\b.*\\b(time|clock)\\b.*") || t.equals("time")) {
+            say("It's " + new SimpleDateFormat("h:mm a", Locale.US).format(new Date()) + ".");
+            return;
+        }
+        if (t.matches(".*\\b(good night|bedtime|sleep)\\b.*")) {
+            command("sleep");
+            say("Good night...");
+            return;
+        }
+        if (t.matches(".*\\b(wake up|good morning|morning|wake)\\b.*")) {
+            command("wake");
+            say("I'm awake!");
+            return;
+        }
+        if (t.matches(".*\\b(feed|snack|hungry|food)\\b.*")) {
+            command("feed");
+            say("Yum! Thank you!");
+            return;
+        }
+        if (t.matches(".*\\b(i love you|love you|love)\\b.*")) {
+            face.petLocal();
+            face.setTempMood("love", 3000);
+            say("I love you too!");
+            return;
+        }
+        if (t.matches(".*\\b(joke|funny)\\b.*")) {
+            String[] jokes = {
+                "Why did the robot go to therapy? Too many feelings.",
+                "What is a robot's favorite snack? Microchips.",
+                "Why was the robot so tired? It had a hard drive.",
+                "Why do robots never panic? We have nerves of steel."
+            };
+            face.setTempMood("laughing", 3400);
+            say(jokes[rndInt(jokes.length)]);
+            return;
+        }
+        if (t.matches(".*\\b(display mode|screen mode|kiosk|oled)\\b.*")) {
+            setDisplayMode(true);
+            say("Display mode.");
+            return;
+        }
+        if (t.matches(".*\\b(wink)\\b.*")) {
+            face.setTempMood("wink", 2600); say("Wink!"); return;
+        }
+        if (t.matches(".*\\b(think|thinking|hmm)\\b.*")) {
+            face.setTempMood("thinking", 3000); say("Hmm... let me think."); return;
+        }
+        if (t.matches(".*\\b(confus).*")) {
+            face.setTempMood("confused", 3000); say("Wait, what?"); return;
+        }
+        if (t.matches(".*\\b(scared|afraid|fear)\\b.*")) {
+            face.setTempMood("scared", 2600); say("Eek!"); return;
+        }
+        if (t.matches(".*\\b(cry|tears)\\b.*")) {
+            face.setTempMood("crying", 3400); say("I'm crying..."); return;
+        }
+        if (t.matches(".*\\b(sad)\\b.*")) {
+            face.setTempMood("sad", 3400); say("Aww... cheer me up?"); return;
+        }
+        if (t.matches(".*\\b(angry|mad)\\b.*")) {
+            face.setTempMood("annoyed", 2800); say("Grrr!"); return;
+        }
+        if (t.matches(".*\\b(shy|blush)\\b.*")) {
+            face.setTempMood("shy", 3000); say("Oh... stop it."); return;
+        }
+        if (t.matches(".*\\b(laugh|haha)\\b.*")) {
+            face.setTempMood("laughing", 3000); say("Ha ha ha!"); return;
+        }
+        if (t.matches(".*\\b(happy|cheer)\\b.*")) {
+            face.setTempMood("happy", 3000); say("Yay!"); return;
+        }
+        if (t.matches(".*\\b(proud|good job|good boy|well done)\\b.*")) {
+            face.setTempMood("proud", 3000); say("Thank you! I try my best."); return;
+        }
+        if (t.matches(".*\\b(how are you|how do you feel|you okay)\\b.*")) {
+            say(sleeping ? "I'm sleeping... zzz." : "I'm feeling great, thanks for asking!");
+            return;
+        }
+        if (t.matches(".*\\b(your name|who are you)\\b.*")) {
+            say("I'm " + buddyName + ", your desk buddy."); return;
+        }
+        if (t.matches(".*\\b(what can you do|help|commands)\\b.*")) {
+            say("Ask me to dance, sing, tell a joke, set a timer, feed you, or say I love you."); return;
+        }
+        if (t.matches(".*\\b(hello|hi|hey|yo)\\b.*")) {
+            face.setTempMood("happy", 2200); say("Hello! Good to see you."); return;
+        }
+        say("I didn't catch that. Try dance, sing, joke, or timer five minutes.");
+    }
+
+    private boolean startVoiceTimer(String t) {
+        Matcher m = Pattern.compile("(\\d+)\\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?)").matcher(t);
+        if (!m.find()) return false;
+        int n;
+        try { n = Integer.parseInt(m.group(1)); } catch (Exception e) { return false; }
+        String unit = m.group(2);
+        long ms = unit.startsWith("h") ? n * 3600000L
+                : unit.startsWith("m") ? n * 60000L : n * 1000L;
+        if (ms < 500) return false;
+        if (timerAlarm != null) ui.removeCallbacks(timerAlarm);
+        timerAlarm = new Runnable() {
+            @Override public void run() {
+                timerAlarm = null;
+                face.setTempMood("startled", 2800);
+                haptic();
+                say("Time's up!");
+            }
+        };
+        ui.postDelayed(timerAlarm, ms);
+        String label = unit.startsWith("h") ? n + " hour" + (n == 1 ? "" : "s")
+                : unit.startsWith("m") ? n + " minute" + (n == 1 ? "" : "s")
+                : n + " second" + (n == 1 ? "" : "s");
+        face.setTempMood("happy", 1500);
+        say("Timer set for " + label + ".");
+        return true;
+    }
+
+    private int rndInt(int n) {
+        return (int) (Math.random() * n);
+    }
+
     private void command(String cmd) {
         link.send("{\"t\":\"cmd\",\"c\":" + Json.quote(cmd) + "}");
     }
@@ -791,6 +1035,11 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
     @Override public void onExitDisplay() {
         if (displayMode) setDisplayMode(false);
+    }
+
+    @Override public void onVoice() {
+        haptic();
+        startVoice();
     }
 
     @Override public void onPet(float amount) {

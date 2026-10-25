@@ -29,16 +29,20 @@ public class FaceView extends View {
         void onPoke(float x, float y);
         void onPet(float amount);
         void onExitDisplay();
+        void onVoice();
     }
 
     private static final int M_HAPPY = 0, M_CURIOUS = 1, M_SLEEPY = 2, M_SLEEPING = 3,
             M_HUNGRY = 4, M_ANNOYED = 5, M_DIZZY = 6, M_LOVE = 7, M_STARTLED = 8,
-            M_BORED = 9, M_EXCITED = 10;
+            M_BORED = 9, M_EXCITED = 10, M_SAD = 11, M_SCARED = 12, M_SHY = 13,
+            M_PROUD = 14, M_CONFUSED = 15, M_LAUGHING = 16, M_CRYING = 17,
+            M_THINKING = 18, M_WINK = 19;
 
     // EMO-style eye expressions
     private static final int F_ROUND = 0, F_WIDE = 1, F_SLEEPY = 2, F_CLOSED = 3,
             F_HAPPY = 4, F_HEART = 5, F_STAR = 6, F_DIZZY = 7, F_ANGRY = 8,
-            F_SAD = 9, F_HALF = 10;
+            F_SAD = 9, F_HALF = 10, F_WINK = 11, F_THINK = 12, F_CRY = 13,
+            F_CONFUSED = 14;
 
     private static final class MoodStyle {
         float eye = 1f, pupil = 1f, blush = .34f;
@@ -46,7 +50,7 @@ public class FaceView extends View {
         String name = "happy";
     }
 
-    private final MoodStyle[] moods = new MoodStyle[11];
+    private final MoodStyle[] moods = new MoodStyle[20];
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -102,17 +106,26 @@ public class FaceView extends View {
 
     private void buildMoods() {
         MoodStyle s;
-        s = new MoodStyle(); s.name = "happy"; s.face = F_ROUND; s.mouth = 0; s.blush = .34f; s.glow = 0xFF79E6FF; s.body = 0xFFEEF3F9; moods[M_HAPPY] = s;
-        s = new MoodStyle(); s.name = "curious"; s.face = F_WIDE; s.eye = 1.1f; s.mouth = 6; s.blush = .22f; s.glow = 0xFF8FEDFF; s.body = 0xFFF3F7FB; moods[M_CURIOUS] = s;
-        s = new MoodStyle(); s.name = "sleepy"; s.face = F_SLEEPY; s.eye = .42f; s.mouth = 2; s.blush = .26f; s.glow = 0xFF9BA9FF; s.body = 0xFFE9EDF6; moods[M_SLEEPY] = s;
-        s = new MoodStyle(); s.name = "sleeping"; s.face = F_CLOSED; s.eye = 0f; s.mouth = 2; s.blush = .18f; s.glow = 0xFF7E8BFF; s.body = 0xFFE4E8F2; moods[M_SLEEPING] = s;
-        s = new MoodStyle(); s.name = "hungry"; s.face = F_WIDE; s.eye = 1.05f; s.mouth = 1; s.blush = .32f; s.glow = 0xFFFFC36B; s.body = 0xFFF3EFE7; moods[M_HUNGRY] = s;
-        s = new MoodStyle(); s.name = "annoyed"; s.face = F_ANGRY; s.eye = .96f; s.mouth = 3; s.blush = .20f; s.glow = 0xFFFF7A6B; s.body = 0xFFF2E9E4; moods[M_ANNOYED] = s;
-        s = new MoodStyle(); s.name = "dizzy"; s.face = F_DIZZY; s.mouth = 5; s.blush = .26f; s.glow = 0xFFC9A2FF; s.body = 0xFFEFEAF7; moods[M_DIZZY] = s;
-        s = new MoodStyle(); s.name = "love"; s.face = F_HEART; s.eye = 1.04f; s.mouth = 0; s.blush = .88f; s.glow = 0xFFFF8FB7; s.body = 0xFFF8EDF2; moods[M_LOVE] = s;
-        s = new MoodStyle(); s.name = "startled"; s.face = F_WIDE; s.eye = 1.26f; s.mouth = 4; s.blush = .22f; s.brow = 3; s.glow = 0xFFFFE08A; s.body = 0xFFF5F2E8; moods[M_STARTLED] = s;
-        s = new MoodStyle(); s.name = "bored"; s.face = F_HALF; s.eye = .62f; s.mouth = 2; s.blush = .16f; s.glow = 0xFF9FB6CF; s.body = 0xFFEDF1F5; moods[M_BORED] = s;
-        s = new MoodStyle(); s.name = "excited"; s.face = F_STAR; s.eye = 1.12f; s.mouth = 1; s.blush = .60f; s.glow = 0xFFFF9BE0; s.body = 0xFFF6EDF6; moods[M_EXCITED] = s;
+        s = new MoodStyle(); s.name = "happy";    s.face = F_ROUND;   s.mouth = 0; s.blush = .34f; s.glow = 0xFF79E6FF; s.body = 0xFF1B262C; moods[M_HAPPY] = s;
+        s = new MoodStyle(); s.name = "curious";  s.face = F_WIDE;    s.eye = 1.1f;  s.mouth = 6; s.blush = .22f; s.glow = 0xFF8FEDFF; s.body = 0xFF1C2931; moods[M_CURIOUS] = s;
+        s = new MoodStyle(); s.name = "sleepy";   s.face = F_SLEEPY;  s.eye = .42f;  s.mouth = 2; s.blush = .26f; s.glow = 0xFF9BA9FF; s.body = 0xFF181E27; moods[M_SLEEPY] = s;
+        s = new MoodStyle(); s.name = "sleeping"; s.face = F_CLOSED;  s.eye = 0f;    s.mouth = 2; s.blush = .18f; s.glow = 0xFF7E8BFF; s.body = 0xFF151A21; moods[M_SLEEPING] = s;
+        s = new MoodStyle(); s.name = "hungry";   s.face = F_WIDE;    s.eye = 1.05f; s.mouth = 1; s.blush = .32f; s.glow = 0xFFFFC36B; s.body = 0xFF251F18; moods[M_HUNGRY] = s;
+        s = new MoodStyle(); s.name = "annoyed";  s.face = F_ANGRY;   s.eye = .96f;  s.mouth = 3; s.blush = .20f; s.brow = 1; s.glow = 0xFFFF7A6B; s.body = 0xFF26191A; moods[M_ANNOYED] = s;
+        s = new MoodStyle(); s.name = "dizzy";    s.face = F_DIZZY;   s.mouth = 5; s.blush = .26f; s.glow = 0xFFC9A2FF; s.body = 0xFF211A29; moods[M_DIZZY] = s;
+        s = new MoodStyle(); s.name = "love";     s.face = F_HEART;   s.eye = 1.04f; s.mouth = 0; s.blush = .88f; s.glow = 0xFFFF8FB7; s.body = 0xFF261A22; moods[M_LOVE] = s;
+        s = new MoodStyle(); s.name = "startled"; s.face = F_WIDE;    s.eye = 1.26f; s.mouth = 4; s.blush = .22f; s.brow = 3; s.glow = 0xFFFFE08A; s.body = 0xFF242018; moods[M_STARTLED] = s;
+        s = new MoodStyle(); s.name = "bored";    s.face = F_HALF;    s.eye = .62f;  s.mouth = 2; s.blush = .16f; s.glow = 0xFF9FB6CF; s.body = 0xFF191F24; moods[M_BORED] = s;
+        s = new MoodStyle(); s.name = "excited";  s.face = F_STAR;    s.eye = 1.12f; s.mouth = 1; s.blush = .60f; s.glow = 0xFFFF9BE0; s.body = 0xFF251A24; moods[M_EXCITED] = s;
+        s = new MoodStyle(); s.name = "sad";      s.face = F_SAD;     s.eye = .90f;  s.mouth = 3; s.blush = .22f; s.brow = 2; s.glow = 0xFF7FA8FF; s.body = 0xFF181E28; moods[M_SAD] = s;
+        s = new MoodStyle(); s.name = "scared";   s.face = F_WIDE;    s.eye = 1.32f; s.mouth = 4; s.blush = .14f; s.brow = 3; s.glow = 0xFFCFEFFF; s.body = 0xFF171E26; moods[M_SCARED] = s;
+        s = new MoodStyle(); s.name = "shy";      s.face = F_HAPPY;   s.eye = .88f;  s.mouth = 6; s.blush = .92f; s.glow = 0xFFFFB3C9; s.body = 0xFF241A20; moods[M_SHY] = s;
+        s = new MoodStyle(); s.name = "proud";    s.face = F_HAPPY;   s.eye = .98f;  s.mouth = 0; s.blush = .55f; s.glow = 0xFF7CFFD2; s.body = 0xFF1A2622; moods[M_PROUD] = s;
+        s = new MoodStyle(); s.name = "confused"; s.face = F_CONFUSED;s.eye = 1.02f; s.mouth = 5; s.blush = .24f; s.brow = 3; s.glow = 0xFF7FE7FF; s.body = 0xFF1B242A; moods[M_CONFUSED] = s;
+        s = new MoodStyle(); s.name = "laughing"; s.face = F_HAPPY;   s.eye = 1.00f; s.mouth = 1; s.blush = .66f; s.glow = 0xFF7FE7FF; s.body = 0xFF1B272D; moods[M_LAUGHING] = s;
+        s = new MoodStyle(); s.name = "crying";   s.face = F_CRY;     s.eye = .82f;  s.mouth = 1; s.blush = .30f; s.brow = 2; s.glow = 0xFF6FA8FF; s.body = 0xFF181E2A; moods[M_CRYING] = s;
+        s = new MoodStyle(); s.name = "thinking"; s.face = F_THINK;   s.eye = 1.00f; s.mouth = 2; s.blush = .20f; s.glow = 0xFFA7E4FF; s.body = 0xFF19242B; moods[M_THINKING] = s;
+        s = new MoodStyle(); s.name = "wink";     s.face = F_WINK;    s.eye = 1.00f; s.mouth = 0; s.blush = .55f; s.glow = 0xFF7FE7FF; s.body = 0xFF1B262C; moods[M_WINK] = s;
     }
 
     void setListener(Listener l) { listener = l; }
@@ -268,7 +281,7 @@ public class FaceView extends View {
 
         int glow = s.glow;
 
-        c.drawColor(0xFF090C15);
+        c.drawColor(0xFF000000);
 
         // ambient glow
         paint.setShader(new RadialGradient(cx, cy, Math.max(rx * 3.1f, 280 * density),
@@ -301,6 +314,8 @@ public class FaceView extends View {
 
         c.restore();
 
+        if (styleId == M_THINKING) drawThought(c);
+        if (styleId == M_CONFUSED) drawQuestion(c);
         drawFx(c, now, dt);
         if (styleId == M_SLEEPING) drawZzz(c);
 
@@ -329,14 +344,14 @@ public class FaceView extends View {
                     null, Shader.TileMode.CLAMP));
             c.drawPath(path, paint);
             paint.setShader(null);
-            stroke.setColor(0x66546A80);
+            stroke.setColor(0x385EE7FF);
             stroke.setStrokeWidth(1.2f * density);
             c.drawPath(path, stroke);
 
             c.save();
             c.clipPath(path);
-            paint.setColor(0x80FFFFFF);
-            c.drawRect(fx - fw * .5f + 2 * density, fy + 2 * density, fx - fw * .5f + fw * .28f, fy + footH * .7f, paint);
+            paint.setColor(0x298DF3FF);
+            c.drawRect(fx - fw * .5f + 2 * density, fy + 2 * density, fx - fw * .5f + fw * .16f, fy + footH * .62f, paint);
             c.restore();
         }
     }
@@ -357,17 +372,17 @@ public class FaceView extends View {
         // shell
         rr(-hw * .5f, -hh * .5f, hw, hh, hw * .285f);
         paint.setShader(new LinearGradient(0, -hh * .5f, 0, hh * .5f,
-                new int[]{0xFFFFFFFF, s.body, shade(s.body, -11), shade(s.body, -28)},
+                new int[]{shade(s.body, 34), shade(s.body, 14), shade(s.body, -12), shade(s.body, -30)},
                 new float[]{0f, .26f, .72f, 1f}, Shader.TileMode.CLAMP));
         c.drawPath(path, paint);
         paint.setShader(null);
-        stroke.setColor(0x574E5C70);
+        stroke.setColor(0x335EE7FF);
         stroke.setStrokeWidth(1.6f * density);
         c.drawPath(path, stroke);
 
         // screen bezel
         rr(sx - 4 * density, sy - 4 * density, sw + 8 * density, sh + 8 * density, srad + 3 * density);
-        paint.setColor(0xFF161C26);
+        paint.setColor(0xFF0A0F14);
         c.drawPath(path, paint);
 
         // screen glass
@@ -431,7 +446,7 @@ public class FaceView extends View {
         c.restore();
 
         // screen edge highlight
-        stroke.setColor(0x12FFFFFF);
+        stroke.setColor(0x1A7AF0FF);
         stroke.setStrokeWidth(2 * density);
         rr(sx + 1, sy + 1, sw - 2, sh - 2, srad);
         c.drawPath(path, stroke);
@@ -445,11 +460,11 @@ public class FaceView extends View {
         // top status button
         rr(-hw * .05f, -hh * .5f - hw * .028f, hw * .10f, hw * .05f, hw * .02f);
         paint.setShader(new LinearGradient(0, -hh * .5f - hw * .028f, 0, -hh * .5f + hw * .022f,
-                new int[]{0xFFFFFFFF, shade(s.body, -18)},
+                new int[]{shade(s.body, 44), shade(s.body, 4)},
                 null, Shader.TileMode.CLAMP));
         c.drawPath(path, paint);
         paint.setShader(null);
-        stroke.setColor(0x59546A80);
+        stroke.setColor(0x385EE7FF);
         stroke.setStrokeWidth(1 * density);
         c.drawPath(path, stroke);
 
@@ -466,8 +481,25 @@ public class FaceView extends View {
     private void drawRobotEye(Canvas c, float x, float y, float ew, float eh,
                               float open, int face, MoodStyle s, int side) {
         int glow = s.glow;
+        float lx = eyeX, ly = eyeY;
+        if (face == F_THINK) { lx = -.55f; ly = -.65f; }
         c.save();
-        c.translate(x + eyeX * ew * .05f, y + eyeY * eh * .05f);
+        c.translate(x + lx * ew * .05f, y + ly * eh * .05f);
+
+        if (face == F_WINK && side > 0) {
+            stroke.setColor(glow);
+            stroke.setStrokeWidth(Math.max(2.4f * density, eh * .10f));
+            path.reset();
+            path.moveTo(-ew * .38f, 0);
+            path.quadTo(0, eh * .20f, ew * .38f, 0);
+            c.drawPath(path, stroke);
+            stroke.setColor(0xB3FFFFFF);
+            stroke.setStrokeWidth(Math.max(1 * density, eh * .03f));
+            c.drawPath(path, stroke);
+            c.restore();
+            return;
+        }
+        if (face == F_WINK) face = F_ROUND;
 
         if (open < .07f || face == F_CLOSED) {
             stroke.setColor(glow);
@@ -547,10 +579,12 @@ public class FaceView extends View {
         if (face == F_ANGRY) h *= .78f;
         if (face == F_SLEEPY) h = eh * Math.max(.10f, open) * .42f;
         if (face == F_HALF) h = eh * Math.max(.10f, open) * .52f;
+        if (face == F_CONFUSED && side > 0) h = eh * open * .45f;
+        if (face == F_THINK && side > 0) h *= .72f;
 
         c.save();
         if (face == F_ANGRY) c.rotate(side * 9f);
-        else if (face == F_SAD) c.rotate(-side * 6f);
+        else if (face == F_SAD || face == F_CRY) c.rotate(-side * 6f);
 
         rr(-w * .5f, -h * .5f, w, h, w * .42f);
         paint.setShader(new LinearGradient(0, -h * .5f, 0, h * .5f,
@@ -571,18 +605,40 @@ public class FaceView extends View {
         stroke.setColor(withAlpha(glow, 220));
         stroke.setStrokeWidth(2 * density);
         c.drawPath(path, stroke);
+
+        // glassy highlight
+        paint.setColor(0xB8FFFFFF);
+        rect.set(-w * .275f, -h * .375f, -w * .065f, -h * .065f);
+        path.reset();
+        path.addOval(rect, Path.Direction.CW);
+        c.drawPath(path, paint);
+
         c.restore();
+
+        if (face == F_CRY) {
+            for (int ti = 0; ti < 2; ti++) {
+                float tx = side * ew * (.30f + ti * .08f);
+                float ty = eh * (.58f + ti * .26f)
+                        + (float) Math.sin(breathT * 4 + side + ti) * eh * .04f;
+                paint.setColor(0xEBD6FAFF);
+                c.drawOval(tx - ew * .05f, ty - eh * .08f, tx + ew * .05f, ty + eh * .08f, paint);
+                paint.setColor(0xCCFFFFFF);
+                c.drawCircle(tx - ew * .015f, ty - eh * .015f, ew * .02f, paint);
+            }
+        }
+
         c.restore();
     }
 
     private void drawBrows(Canvas c, int face, MoodStyle s, float ex, float ey, float ew, float eh) {
-        if (face != F_ANGRY && face != F_SAD && s.brow != 3) return;
-        float y = ey - eh * .74f;
+        if (s.brow == 0) return;
+        boolean raised = s.brow == 3;
+        float y = ey - eh * (raised ? .96f : .74f);
         stroke.setStrokeCap(Paint.Cap.ROUND);
         for (int side = -1; side <= 1; side += 2) {
-            float tilt = face == F_ANGRY ? -side * .34f : face == F_SAD ? side * .24f : 0;
+            float tilt = s.brow == 1 ? -side * .34f : s.brow == 2 ? side * .24f : 0;
             c.save();
-            c.translate(side * ex, y - (s.brow == 3 ? eh * .18f : 0));
+            c.translate(side * ex, y - (raised ? eh * .18f : 0));
             c.rotate((float) (tilt * 57.2958));
             path.reset();
             path.moveTo(-ew * .40f, 0);
@@ -748,6 +804,29 @@ public class FaceView extends View {
         c.drawPath(p, paint);
     }
 
+    private void drawThought(Canvas c) {
+        text.setColor(0xFF7FE7FF);
+        text.setTextAlign(Paint.Align.LEFT);
+        for (int i = 0; i < 3; i++) {
+            float x = Math.min(getWidth() - 24 * density - rx * .20f, cx + rx * .32f) + i * rx * .10f;
+            float y = Math.max(44 * density, cy - ry * 1.48f) - i * ry * .08f;
+            text.setAlpha((int) (255 * (.30f + .45f * Math.sin(breathT * 3 - i * .8))));
+            c.drawCircle(x, y, Math.max(2 * density, rx * .026f + i * 1.6f * density), text);
+        }
+        text.setAlpha(255);
+        text.setTextAlign(Paint.Align.CENTER);
+    }
+
+    private void drawQuestion(Canvas c) {
+        text.setColor(0xFF7FE7FF);
+        text.setTextSize(Math.max(16 * density, rx * .17f));
+        text.setAlpha((int) (255 * (.65f + .35f * Math.sin(breathT * 3))));
+        float x = Math.min(getWidth() - 26 * density, cx + rx * .40f);
+        float y = Math.max(50 * density, cy - ry * 1.45f);
+        c.drawText("?", x, y, text);
+        text.setAlpha(255);
+    }
+
     private void drawZzz(Canvas c) {
         text.setColor(0xCCD0E0FF);
         for (int i = 0; i < 3; i++) {
@@ -787,6 +866,11 @@ public class FaceView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 touching = false;
+                if (now - downAt > 650 && moveAmount < 30 * density) {
+                    if (listener != null) listener.onVoice();
+                    touchX = -1;
+                    break;
+                }
                 if (now - downAt < 320 && moveAmount < 24 * density) {
                     if (touchX < getWidth() * .22f && touchY < getHeight() * .22f) {
                         if (now - cornerAt > 1100) cornerTaps = 0;
