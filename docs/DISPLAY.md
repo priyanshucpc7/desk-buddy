@@ -3,20 +3,23 @@
 DeskBuddy can present itself as a bare face — no header, no vitals, no buttons —
 so a phone or a small screen looks like a dedicated desk robot display. It is
 the same renderer and the same moods as the full page, just without the page
-chrome. The cyan-on-black palette is deliberately OLED-friendly: true black
-background, a graphite shell, and only the eyes, mouth and edge light glow.
+chrome. It is a **bare OLED screen**: true black, only the eyes, brows and mouth.
+No robot shell, feet, bezel or border — the phone screen itself is the display.
 
 ## Browser / phone
 
 - The page opens in face mode by default. Toggle **Settings → Open in face mode**
   off if you prefer the dashboard on load.
+- On a phone browser, entering fullscreen tries to lock the screen to landscape;
+  the Android app always runs face mode in landscape.
 - You can also click the **monitor icon** in the header, or open **`/?screen=1`**.
 - The page goes full-screen (first tap if the browser blocks auto-fullscreen),
   hides every control and keeps the screen awake when the browser allows it.
 - **Exit:** triple-tap the top-left corner, or press `Esc` on a keyboard.
   The mode is remembered when entered from the button; `?screen=1` is one-shot.
 - Keyboard shortcuts still work: `F` feed, `P` dance, `G` sing, `J` game,
-  `S` sleep/wake, `L` voice, `T` timer.
+  `S` sleep/wake, `L` voice, `T` timer. On a touch screen, **long-press the
+  face** to toggle the microphone.
 - On a phone the browser may block the microphone over plain HTTP. Use the
   Android app's **Talk** button (or long-press the face) for voice in display
   mode, or the typed command box in Settings.
@@ -32,11 +35,11 @@ The face scales from the viewport, so the same page works at any size:
 
 ## Android app
 
-The app launches straight into **Open in face mode** (on by default): status
-bar, buttons and dashboard are hidden, the face is enlarged, and sensors keep
-streaming. Use the connection panel once to switch it off if you want the
-dashboard at launch. Press Back or triple-tap the top-left to leave temporarily;
-the next launch still starts with the face. Tap **Talk** before entering display mode, or
+The app launches straight into **Open in face mode** (on by default) and is
+locked to **landscape**. Status bar, buttons and dashboard are hidden; only the
+eyes and mouth are drawn, edge to edge on black. Use the connection panel once
+to switch it off if you want the dashboard at launch. Press Back or triple-tap
+the top-left to leave temporarily; the next launch still starts with the face. Tap **Talk** before entering display mode, or
 long-press the face at any time; the phone's own recognizer and TTS handle the
 command, so voice still works without a web page.
 

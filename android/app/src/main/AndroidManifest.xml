@@ -22,7 +22,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
-            android:screenOrientation="unspecified"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

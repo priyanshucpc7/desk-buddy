@@ -46,14 +46,15 @@ Living.AI — just a love letter to tiny desk robots.
   the face-only display. On the web, Settings → **Open in face mode** controls
   this; on Android the same switch is in the connection panel. Triple-tap the
   top-left / press Back or `Esc` to reach the dashboard when you need it.
-- **Display mode**: hides all controls and fills the screen with the face only —
-  perfect for a phone on a stand, and the same layout scales down to 240×240,
-  128×64 or any small panel you buy later. The cyan-on-black theme was designed
-  for this. See [docs/DISPLAY.md](docs/DISPLAY.md).
+- **Bare OLED face mode**: display mode is now just the eyes and mouth on true
+  black — no body, feet, bezel, border or page chrome. The Android app locks to
+  landscape and fills the screen. Perfect for a phone on a stand, and the same
+  geometry scales down to 240×240, 128×64 or any small panel you buy later.
+  See [docs/DISPLAY.md](docs/DISPLAY.md).
 - Android app renders the same buddy full-screen, has a face-only display mode,
   and streams sensor data back.
 
-| Web UI | Phone face |
+| Web UI (dashboard) | Phone face (landscape) |
 | --- | --- |
 | ![browser](docs/screenshot-web.jpg) | ![phone](docs/screenshot-phone.jpg) |
 
@@ -142,8 +143,9 @@ after that, updates keep your settings and data.
 - **Drag across it**: pet.
 - **Feed / Dance / Sing / Game / Sleep** buttons (or keys `F`, `P`, `G`, `J`, `S`).
 - **Mic** in the header (or `L`) starts browser voice commands; `V` toggles
-  spoken replies. `T` starts a 5-minute timer. Type a command in Settings if
-  the browser blocks the microphone.
+  spoken replies. `T` starts a 5-minute timer. In face mode, **long-press the
+  face** to toggle the mic. Type a command in Settings if the browser blocks
+  the microphone.
 - **Display mode** button (monitor icon) or open `/?screen=1` — face only,
   no chrome. Triple-tap the top-left or press `Esc` to exit.
 - Settings (⚙) for name, sound, voice, timer, commands, WiFi, reset.

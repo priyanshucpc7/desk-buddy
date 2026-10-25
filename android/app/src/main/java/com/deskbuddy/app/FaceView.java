@@ -202,12 +202,10 @@ public class FaceView extends View {
         if (w <= 0 || h <= 0) return;
         float radius;
         if (faceOnly) {
-            radius = Math.min(w * 0.46f, h * 0.30f);
-            if (radius < 60 * density) radius = 60 * density;
-            rx = radius * 1.06f;
-            ry = radius;
+            rx = w * .35f;
+            ry = h * .42f;
             cx = w / 2f;
-            cy = h * 0.50f;
+            cy = h * .50f;
         } else {
             radius = Math.min(w * 0.288f, h * 0.22f);
             if (radius < 60 * density) radius = 60 * density;
@@ -283,6 +281,16 @@ public class FaceView extends View {
 
         c.drawColor(0xFF000000);
 
+        if (faceOnly) {
+            drawBareFace(c, s, styleId, blink, dancing);
+            if (styleId == M_THINKING) drawThought(c);
+            if (styleId == M_CONFUSED) drawQuestion(c);
+            drawFx(c, now, dt);
+            if (styleId == M_SLEEPING) drawZzz(c);
+            postInvalidateOnAnimation();
+            return;
+        }
+
         // ambient glow
         paint.setShader(new RadialGradient(cx, cy, Math.max(rx * 3.1f, 280 * density),
                 new int[]{withAlpha(glow, 46), withAlpha(glow, 16), withAlpha(glow, 0)},
@@ -353,6 +361,73 @@ public class FaceView extends View {
             paint.setColor(0x298DF3FF);
             c.drawRect(fx - fw * .5f + 2 * density, fy + 2 * density, fx - fw * .5f + fw * .16f, fy + footH * .62f, paint);
             c.restore();
+        }
+    }
+
+    // Full-bleed face for display mode: no body, no bezel, no border.
+    private void drawBareFace(Canvas c, MoodStyle s, int styleId, float blink, boolean dancing) {
+        int w = getWidth(), h = getHeight();
+        if (w <= 0 || h <= 0) return;
+        int glow = s.glow;
+        int face = s.face;
+        if (dancing) face = F_HAPPY;
+
+        float eyeW = Math.min(w * .30f, h * .36f);
+        float eyeH = eyeW * 1.15f;
+        float ex = Math.min(w * .18f, eyeW * 1.05f);
+        float ey = h * .44f;
+        float mouthW = eyeW * 1.05f;
+        float mouthH = Math.max(9 * density, h * .055f);
+        float mouthY = h * .70f;
+
+        paint.setShader(new RadialGradient(cx, h * .47f, Math.max(w, h) * .62f,
+                new int[]{withAlpha(glow, 50), withAlpha(glow, 14), withAlpha(glow, 0)},
+                new float[]{0f, .45f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, w, h, paint);
+        paint.setShader(null);
+
+        float bob = (float) Math.sin(breathT * 1.22) * h * .004f
+                + (dancing ? Math.abs((float) Math.sin(breathT * 6)) * h * .012f : 0);
+
+        c.save();
+        c.translate(cx, bob);
+
+        if (s.blush > .45f) {
+            int alpha = (int) (255 * s.blush * (.28f + .22f * (float) Math.sin(breathT * 2.0)));
+            for (int bs = -1; bs <= 1; bs += 2) {
+                float bx = bs * ex * 1.22f;
+                float by = ey + eyeH * .56f;
+                float br = eyeW * .34f;
+                paint.setShader(new RadialGradient(bx, by, br,
+                        new int[]{withAlpha(0xFFFF7EA0, alpha), withAlpha(0xFFFF7EA0, 0)},
+                        new float[]{0f, 1f}, Shader.TileMode.CLAMP));
+                c.drawCircle(bx, by, br, paint);
+            }
+            paint.setShader(null);
+        }
+
+        float open = s.eye * (1 - blink);
+        if (styleId == M_SLEEPING) open = 0;
+        if (face == F_HEART || face == F_STAR || face == F_DIZZY) open = Math.max(open, .5f);
+
+        for (int side = -1; side <= 1; side += 2) {
+            drawRobotEye(c, side * ex, ey, eyeW, eyeH, open, face, s, side);
+        }
+        drawBrows(c, face, s, ex, ey, eyeW, eyeH);
+
+        int mouthStyle = s.mouth;
+        if (dancing) mouthStyle = 0;
+        drawMouth(c, 0, mouthY, mouthW, mouthH, mouthStyle, glow);
+        c.restore();
+
+        // faint OLED scanlines
+        paint.setColor(0x098DF3FF);
+        for (float y = 1; y < h; y += 4 * density) {
+            c.drawRect(0, y, w, y + 1 * density, paint);
+        }
+        if (styleId == M_SLEEPING) {
+            paint.setColor(0x66000000);
+            c.drawRect(0, 0, w, h, paint);
         }
     }
 

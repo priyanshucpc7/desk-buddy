@@ -427,7 +427,7 @@
 
     <div class="sect">
       <div class="row"><span class="hint">Reset stats, bond and personality</span><button class="btn danger" id="resetBtn">Start over</button></div>
-      <div class="hint" style="margin-top:10px">Firmware 1.3.1 · <span id="about">esp32-s3</span></div>
+      <div class="hint" style="margin-top:10px">Firmware 1.4 · <span id="about">esp32-s3</span></div>
     </div>
   </div>
 </div>
@@ -513,13 +513,10 @@
   }
   function layout(){
     if (screenMode){
-      var pad = Math.min(W, H) * .055;
-      var r = Math.min((W - pad*2)/1.717, (H - pad*2)/1.80);
-      r = Math.max(20, r);
-      bodyBox.rx = r * 1.06;
-      bodyBox.ry = r;
       bodyBox.cx = W / 2;
-      bodyBox.cy = H / 2 - r * .04;
+      bodyBox.cy = H * .50;
+      bodyBox.rx = W * .35;
+      bodyBox.ry = H * .42;
       return;
     }
     var mobile = W <= 860;
@@ -916,6 +913,19 @@
 
     ctx.clearRect(0, 0, W, H);
 
+    // Face mode is a bare OLED screen: no body, no bezel, no border.
+    if (screenMode){
+      drawBareFace(t, M, moodKey, openAmt, dim, dancing, singing, talking, yawnK);
+      if (moodKey === "thinking") drawThought(t);
+      if (moodKey === "confused") drawQuestion(t);
+      if (dancing && Math.random() < .05) burst("note", 1);
+      drawFx(t);
+      if (moodKey === "sleeping") drawZzz(t);
+      drawListening(t);
+      drawGame(t);
+      return;
+    }
+
     // ---- dust motes ---------------------------------------------------
     for (var i = 0; !screenMode && i < DUST.length; i++){
       var p = DUST[i];
@@ -1005,6 +1015,66 @@
       c.fillRect(fx - fw*.5, fy + 2, fw*.16, footH*.62);
       c.restore();
     }
+  }
+
+  // Full-bleed face for display mode. No shell, no feet, no border.
+  function drawBareFace(t, M, moodKey, openAmt, dim, dancing, singing, talking, yawnK){
+    var face = M.face;
+    if (dancing || singing) face = "happy";
+    var eyeW = Math.min(W*.30, H*.36);
+    var eyeH = eyeW*1.15;
+    var ex = Math.min(W*.18, eyeW*1.05);
+    var ey = H*.44;
+    var mouthW = eyeW*1.05;
+    var mouthH = Math.max(9, H*.055);
+    var mouthY = H*.70;
+    var glow = M.glow;
+
+    ctx.save();
+    ctx.globalAlpha = 1 - dim;
+
+    // soft ambient light, but no panel or rim
+    var gr = Math.max(W, H)*.62;
+    var gg = ctx.createRadialGradient(W/2, H*.47, 4, W/2, H*.47, gr);
+    gg.addColorStop(0, hexA(glow, .20));
+    gg.addColorStop(.45, hexA(glow, .055));
+    gg.addColorStop(1, hexA(glow, 0));
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, 0, W, H);
+
+    var bob = Math.sin(t*1.22)*H*.004;
+    if (dancing) bob += Math.abs(Math.sin(t*6))*H*.012;
+
+    ctx.save();
+    ctx.translate(W/2, bob);
+
+    // blush LEDs
+    if (M.blush > .45){
+      var ba = 255 * M.blush * (.28 + .22*Math.sin(t*2));
+      for (var bs = -1; bs <= 1; bs += 2){
+        var bx = bs*ex*1.22, by = ey + eyeH*.56;
+        var bg = ctx.createRadialGradient(bx, by, 1, bx, by, eyeW*.34);
+        bg.addColorStop(0, "rgba(255,126,160," + (ba/255) + ")");
+        bg.addColorStop(1, "rgba(255,126,160,0)");
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.arc(bx, by, eyeW*.34, 0, 6.283); ctx.fill();
+      }
+    }
+
+    for (var side = -1; side <= 1; side += 2){
+      drawRobotEye(ctx, side*ex, ey, eyeW, eyeH, openAmt, face, M, t, side,
+                   look.eyeX, look.eyeY);
+    }
+    drawRobotBrows(ctx, face, W/2, H/2, ex, ey, eyeW, eyeH, M, t);
+    drawRobotMouth(ctx, 0, mouthY, mouthW, mouthH,
+                   dancing ? "smile" : M.mouth, M, t, yawnK);
+    ctx.restore();
+
+    // a whisper of scanlines; no frame
+    ctx.globalAlpha = (1 - dim)*.035;
+    ctx.fillStyle = "#8DF3FF";
+    for (var y = 1; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+    ctx.restore();
   }
 
   function drawHead(c, hw, hh, M, moodKey, t, openAmt, dim, dancing, singing, talking, yawnK){
@@ -1191,8 +1261,13 @@
 
   // --------------------------------------------------------------- thought
   function drawThought(t){
-    var x = Math.min(W - 24 - bodyBox.rx*.20, bodyBox.cx + bodyBox.rx*.32);
-    var y = Math.max(44, bodyBox.cy - bodyBox.ry*1.48);
+    var x, y;
+    if (screenMode){
+      x = W*.62; y = H*.20;
+    } else {
+      x = Math.min(W - 24 - bodyBox.rx*.20, bodyBox.cx + bodyBox.rx*.32);
+      y = Math.max(44, bodyBox.cy - bodyBox.ry*1.48);
+    }
     ctx.save();
     ctx.fillStyle = "#7FE7FF";
     ctx.shadowColor = "#5EE7FF";
@@ -1208,8 +1283,13 @@
   }
 
   function drawQuestion(t){
-    var x = Math.min(W - 26, bodyBox.cx + bodyBox.rx*.40);
-    var y = Math.max(50, bodyBox.cy - bodyBox.ry*1.45);
+    var x, y;
+    if (screenMode){
+      x = W*.68; y = H*.20;
+    } else {
+      x = Math.min(W - 26, bodyBox.cx + bodyBox.rx*.40);
+      y = Math.max(50, bodyBox.cy - bodyBox.ry*1.45);
+    }
     ctx.save();
     ctx.font = "600 " + Math.max(16, bodyBox.rx*.17) + "px ui-sans-serif,system-ui,sans-serif";
     ctx.fillStyle = "#7FE7FF";
@@ -2143,9 +2223,14 @@
       }
       return;
     }
+    if (screenMode && dt > 650 && pet.moved < 26){
+      toggleListening();
+      return;
+    }
     if (dt < 260 && pet.moved < 14) send({t:"touch", kind:"tap", x:normX(pet.x0), y:normY(pet.y0)});
   });
   canvas.addEventListener("pointercancel", function(){ pet.active = false; });
+  canvas.addEventListener("contextmenu", function(e){ e.preventDefault(); });
   function petMove(p){
     pet.moved += Math.abs(p.x - pet.x0) + Math.abs(p.y - pet.y0);
     var n = now();
@@ -2192,9 +2277,16 @@
       fsRequested = false;
       requestWake();
       if (full) tryFullscreen();
+      try {
+        if (screen.orientation && screen.orientation.lock)
+          screen.orientation.lock("landscape").catch(function(){});
+      } catch(e){}
     } else {
       releaseWake();
       tryExitFullscreen();
+      try {
+        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+      } catch(e){}
     }
     resize();
   }
