@@ -427,7 +427,7 @@
 
     <div class="sect">
       <div class="row"><span class="hint">Reset stats, bond and personality</span><button class="btn danger" id="resetBtn">Start over</button></div>
-      <div class="hint" style="margin-top:10px">Firmware 1.4 · <span id="about">esp32-s3</span></div>
+      <div class="hint" style="margin-top:10px">Firmware 1.4.1 · <span id="about">esp32-s3</span></div>
     </div>
   </div>
 </div>
@@ -2198,6 +2198,7 @@
       fsRequested = true;
       requestWake();
       tryFullscreen();
+      setTimeout(lockLandscape, 500);
     }
     var p = normPos(e);
     pet.active = true; pet.moved = 0; pet.start = now();
@@ -2256,6 +2257,17 @@
       else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
     } catch(e){}
   }
+  function lockLandscape(){
+    try {
+      if (screen.orientation && screen.orientation.lock)
+        screen.orientation.lock("landscape").catch(function(){});
+    } catch(e){}
+  }
+  function unlockOrientation(){
+    try {
+      if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    } catch(e){}
+  }
   function requestWake(){
     try {
       if (!navigator.wakeLock || wakeLock) return;
@@ -2277,16 +2289,11 @@
       fsRequested = false;
       requestWake();
       if (full) tryFullscreen();
-      try {
-        if (screen.orientation && screen.orientation.lock)
-          screen.orientation.lock("landscape").catch(function(){});
-      } catch(e){}
+      setTimeout(lockLandscape, 450);
     } else {
       releaseWake();
       tryExitFullscreen();
-      try {
-        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-      } catch(e){}
+      unlockOrientation();
     }
     resize();
   }
