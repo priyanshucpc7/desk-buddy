@@ -42,10 +42,14 @@ Living.AI — just a love letter to tiny desk robots.
 - Remembers its name, personality and level across reboots.
 - Laptop UI is self-contained: **no app, no internet, no external libraries** —
   served straight from the ESP32.
-- **Display mode**: one tap hides all controls and fills the screen with the face
-  only — perfect for a phone on a stand, and the same layout scales down to
-  240×240, 128×64 or any small panel you buy later. The cyan-on-black theme was
-  designed for this. See [docs/DISPLAY.md](docs/DISPLAY.md).
+- **Face-first launch**: both the web page and the Android app open straight into
+  the face-only display. On the web, Settings → **Open in face mode** controls
+  this; on Android the same switch is in the connection panel. Triple-tap the
+  top-left / press Back or `Esc` to reach the dashboard when you need it.
+- **Display mode**: hides all controls and fills the screen with the face only —
+  perfect for a phone on a stand, and the same layout scales down to 240×240,
+  128×64 or any small panel you buy later. The cyan-on-black theme was designed
+  for this. See [docs/DISPLAY.md](docs/DISPLAY.md).
 - Android app renders the same buddy full-screen, has a face-only display mode,
   and streams sensor data back.
 
@@ -108,7 +112,7 @@ WiFi, so `http://192.168.4.1` keeps working if the router changes address.
 
 ### 3. (Optional) Make the old phone the face + sensors
 
-Install `app-debug.apk` from Releases (allow "install unknown apps"), open it,
+Install `deskbuddy.apk` from Releases (allow "install unknown apps"), open it,
 then:
 
 - **Find on WiFi** — finds the ESP32 over mDNS, or
@@ -126,6 +130,11 @@ Allow microphone access if you want noise reactions. The app streams:
 | microphone | loudness → startled reactions |
 
 Keep the app in the foreground; the screen stays awake by default.
+
+The APK is signed with a project release key and its `versionCode` increases on
+every CI build, so later releases install over the top. **If you installed an
+older debug-signed build, uninstall it once** before installing `deskbuddy.apk`;
+after that, updates keep your settings and data.
 
 ## Using it
 

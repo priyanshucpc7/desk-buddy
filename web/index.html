@@ -405,12 +405,13 @@
       <div class="row"><span class="hint">Voice commands <span style="opacity:.6">(mic)</span></span><button class="btn" id="voiceCmdBtn">listen</button></div>
       <div class="row"><span class="hint">Timer</span><button class="btn" id="timerBtn">5 min</button></div>
       <div class="row"><span class="hint">Display mode <span style="opacity:.6">(OLED / kiosk)</span></span><button class="btn" id="displayBtn">open</button></div>
+      <div class="row"><span class="hint">Open in face mode <span style="opacity:.6">(no dashboard)</span></span><button class="btn" id="startFaceBtn">on</button></div>
       <div class="field">
         <input type="text" id="askInput" maxlength="80" placeholder="Type a command: dance, joke, timer 5 minutes…">
         <button class="btn primary" id="askBtn">Ask</button>
       </div>
       <div class="hint">Browser voice needs mic permission; Chrome may require HTTPS. The Android app’s <b>Talk</b> button uses the phone’s own recognizer and works in display mode too.</div>
-      <div class="hint" id="displayHint">Face only, no page controls — fills a phone or a small display. Triple-tap the top-left corner (or press Esc) to come back.</div>
+      <div class="hint" id="displayHint">Face only, no page controls — fills a phone or a small display. Triple-tap the top-left corner (or press Esc) to come back. “Open in face mode” makes every reload start here.</div>
       <div class="row"><span class="hint">Phone sensors</span><span class="hint" id="phoneHint">waiting…</span></div>
       <div class="hint">Open the DeskBuddy app on the Android phone, join this same WiFi, then enter
         <span class="kbd" id="hostText">deskbuddy.local</span>. The phone becomes a second face plus the sensor pack.</div>
@@ -426,7 +427,7 @@
 
     <div class="sect">
       <div class="row"><span class="hint">Reset stats, bond and personality</span><button class="btn danger" id="resetBtn">Start over</button></div>
-      <div class="hint" style="margin-top:10px">Firmware 1.3 · <span id="about">esp32-s3</span></div>
+      <div class="hint" style="margin-top:10px">Firmware 1.3.1 · <span id="about">esp32-s3</span></div>
     </div>
   </div>
 </div>
@@ -457,7 +458,7 @@
   var bodyBox = { cx:0, cy:0, rx:0, ry:0 };
   var t0 = performance.now();
   var soundOn = true, voiceOn = true, audioCtx = null;
-  var screenMode = false, wakeLock = null, fsRequested = false;
+  var screenMode = false, startFacePref = true, wakeLock = null, fsRequested = false;
   var exitTaps = 0, exitTapTimer = 0;
 
   // voice commands, mini-game, timer
@@ -2232,6 +2233,12 @@
   $("askInput").addEventListener("keydown", function(e){
     if (e.key === "Enter"){ e.preventDefault(); $("askBtn").click(); }
   });
+  if ($("startFaceBtn")) $("startFaceBtn").addEventListener("click", function(){
+    startFacePref = !startFacePref;
+    $("startFaceBtn").textContent = startFacePref ? "on" : "off";
+    try { localStorage.setItem("db_startface", startFacePref ? "1" : "0"); } catch(e){}
+    toast(startFacePref ? "will open in face mode" : "dashboard at launch");
+  });
   $("screenBtn").addEventListener("click", enterDisplay);
   $("displayBtn").addEventListener("click", enterDisplay);
   $("voiceBtn").addEventListener("click", function(){
@@ -2285,6 +2292,7 @@
 
   function refreshSettings(){
     $("nameInput").value = state.name;
+    if ($("startFaceBtn")) $("startFaceBtn").textContent = startFacePref ? "on" : "off";
     $("wifiTag").textContent = state.ap ? "hotspot mode" : "connected";
     $("wifiTag").style.background = state.ap ? "#FFC36B" : "#7CFFD2";
     $("apName").textContent = state.apSsid || "DeskBuddy-XXXX";
@@ -2311,13 +2319,13 @@
   }
 
   // boot
-  var startScreen = false;
-  try { startScreen = localStorage.getItem("db_screen") === "1"; } catch(e){}
+  try {
+    var sf = localStorage.getItem("db_startface");
+    startFacePref = sf !== "0";
+  } catch(e){}
+  var startScreen = startFacePref;
   if (/[?&](screen|display)=1/.test(location.search)) startScreen = true;
-  if (/[?&](screen|display)=0/.test(location.search)) {
-    startScreen = false;
-    try { localStorage.removeItem("db_screen"); } catch(e){}
-  }
+  if (/[?&](screen|display)=0/.test(location.search)) startScreen = false;
   screenMode = startScreen;
   if (screenMode) document.body.classList.add("display");
   document.addEventListener("visibilitychange", function(){

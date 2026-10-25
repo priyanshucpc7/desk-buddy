@@ -8,7 +8,9 @@ background, a graphite shell, and only the eyes, mouth and edge light glow.
 
 ## Browser / phone
 
-- Click the **monitor icon** in the header, or open **`/?screen=1`**.
+- The page opens in face mode by default. Toggle **Settings → Open in face mode**
+  off if you prefer the dashboard on load.
+- You can also click the **monitor icon** in the header, or open **`/?screen=1`**.
 - The page goes full-screen (first tap if the browser blocks auto-fullscreen),
   hides every control and keeps the screen awake when the browser allows it.
 - **Exit:** triple-tap the top-left corner, or press `Esc` on a keyboard.
@@ -30,10 +32,11 @@ The face scales from the viewport, so the same page works at any size:
 
 ## Android app
 
-Settings (≡) → **Display mode (face only)**, or press the Back button to leave.
-It hides the status bar and buttons, enlarges the face, keeps the screen awake
-according to the existing setting, and still streams sensors. A triple-tap in
-the top-left corner also exits. Tap **Talk** before entering display mode, or
+The app launches straight into **Open in face mode** (on by default): status
+bar, buttons and dashboard are hidden, the face is enlarged, and sensors keep
+streaming. Use the connection panel once to switch it off if you want the
+dashboard at launch. Press Back or triple-tap the top-left to leave temporarily;
+the next launch still starts with the face. Tap **Talk** before entering display mode, or
 long-press the face at any time; the phone's own recognizer and TTS handle the
 command, so voice still works without a web page.
 

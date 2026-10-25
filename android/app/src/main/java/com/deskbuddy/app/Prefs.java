@@ -44,6 +44,15 @@ final class Prefs {
         sp.edit().putBoolean("display", v).apply();
     }
 
+    /** Open straight into the face-only screen (default on). */
+    boolean startFace() {
+        return sp.getBoolean("startface", true);
+    }
+
+    void setStartFace(boolean v) {
+        sp.edit().putBoolean("startface", v).apply();
+    }
+
     boolean tutorialSeen() {
         return sp.getBoolean("seen", false);
     }

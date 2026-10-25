@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+// CI supplies these; local builds fall back to the debug key.
+def dbStorePath = System.getenv("DB_KEYSTORE")
+def dbStorePassword = System.getenv("DB_KEYSTORE_PASSWORD")
+def dbKeyAlias = System.getenv("DB_KEY_ALIAS") ?: "deskbuddy"
+def dbKeyPassword = System.getenv("DB_KEY_PASSWORD") ?: dbStorePassword
+def dbVersionCode = (System.getenv("DB_VERSION_CODE") ?: "3").toInteger()
+
 android {
     namespace 'com.deskbuddy.app'
     compileSdk 34
@@ -10,17 +17,30 @@ android {
         applicationId "com.deskbuddy.app"
         minSdk 21
         targetSdk 34
-        versionCode 2
-        versionName "1.3.0"
+        versionCode dbVersionCode
+        versionName "1.3.1"
+    }
+
+    signingConfigs {
+        if (dbStorePath) {
+            release {
+                storeFile file(dbStorePath)
+                storePassword dbStorePassword
+                keyAlias dbKeyAlias
+                keyPassword dbKeyPassword
+            }
+        }
     }
 
     buildTypes {
         debug {
-            // signed with the debug key so it can be sideloaded straight away
+            // If the release key is present, debug builds are signed with it too,
+            // so either APK updates cleanly over the other.
+            if (dbStorePath) signingConfig signingConfigs.release
         }
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            if (dbStorePath) signingConfig signingConfigs.release
         }
     }
 

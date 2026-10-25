@@ -89,13 +89,35 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Build debug APK
-        run: gradle -p android :app:assembleDebug --no-daemon --stacktrace
+      - name: Decode release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keys/deskbuddy.p12"
+          echo "DB_KEYSTORE=$RUNNER_TEMP/keys/deskbuddy.p12" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        env:
+          DB_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DB_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DB_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          DB_VERSION_CODE: ${{ github.run_number }}
+        run: gradle -p android :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK signature
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK"
+          mkdir -p build
+          cp "$APK" build/deskbuddy.apk
+          ls -lh build/deskbuddy.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: build/deskbuddy.apk
 
   release:
     name: Publish downloads
@@ -123,7 +145,10 @@ jobs:
             ```
             esptool --chip esp32s3 -p COM5 -b 921600 write_flash 0x0 deskbuddy-esp32s3-16mb.bin
             ```
-            **Android phone app** — install `app-debug.apk` (Android 5.0+).
+            **Android phone app** — install `deskbuddy.apk` (Android 5.0+).
+            It is signed with the project release key, so future versions install
+            over the top. If you installed an older debug-signed build, uninstall
+            it once first.
           files: |
             dist/firmware/deskbuddy-esp32s3-16mb.bin
-            dist/apk/app-debug.apk
+            dist/apk/deskbuddy.apk

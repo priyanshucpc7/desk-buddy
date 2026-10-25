@@ -73,6 +73,8 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
     private CheckBox micBox;
     private CheckBox awakeBox;
     private CheckBox displayBox;
+    private CheckBox startFaceBox;
+    private boolean autoFaceDone = false;
     private View topBar, bottomBar;
     private boolean displayMode = false;
     private TextView panelHint;
@@ -109,7 +111,8 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         } else {
             openPanel(true);
         }
-        displayMode = prefs.display() && host != null && host.length() > 0;
+        displayMode = prefs.startFace() && host != null && host.length() > 0;
+        autoFaceDone = displayMode;
         applyDisplayMode();
 
         if (prefs.mic() && Build.VERSION.SDK_INT >= 23 && !micGranted()) {
@@ -475,6 +478,29 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
         dispLp.topMargin = (int) dp(6);
         card.addView(displayBox, dispLp);
 
+        startFaceBox = new CheckBox(this);
+        startFaceBox.setText("Open in face mode");
+        startFaceBox.setTextColor(0xFFBFEFF7);
+        startFaceBox.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        startFaceBox.setChecked(prefs.startFace());
+        startFaceBox.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                prefs.setStartFace(startFaceBox.isChecked());
+            }
+        });
+        LinearLayout.LayoutParams startLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        startLp.topMargin = (int) dp(6);
+        card.addView(startFaceBox, startLp);
+
+        TextView startHint = new TextView(this);
+        startHint.setText("Launch straight into the face, with no dashboard. "
+                + "Turn this off if you want the controls every time.");
+        startHint.setTextColor(0xFF4C6B75);
+        startHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        startHint.setLineSpacing(dp(2), 1f);
+        card.addView(startHint);
+
         TextView dispHint = new TextView(this);
         dispHint.setText("Hides every control, like a small OLED screen. "
                 + "Triple-tap the top-left corner or press Back to leave. "
@@ -725,6 +751,10 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
             startSensors();
             panelHint.setText("");
             face.setMood(sleeping ? "sleeping" : "happy");
+            if (prefs.startFace() && !displayMode && !autoFaceDone) {
+                autoFaceDone = true;
+                setDisplayMode(true);
+            }
         } else {
             statusText.setText("offline · tap ≡ to connect");
             stopSensors();
@@ -772,12 +802,14 @@ public class MainActivity extends Activity implements Link.Listener, FaceView.Li
 
     private void setDisplayMode(boolean on) {
         displayMode = on;
+        autoFaceDone = true;
         prefs.setDisplay(on);
         if (displayBox != null) displayBox.setChecked(on);
         applyDisplayMode();
     }
 
     private void applyDisplayMode() {
+        if (displayBox != null) displayBox.setChecked(displayMode);
         if (topBar != null) topBar.setVisibility(displayMode ? View.GONE : View.VISIBLE);
         if (bottomBar != null) bottomBar.setVisibility(displayMode ? View.GONE : View.VISIBLE);
         if (face != null) face.setFaceOnly(displayMode);
